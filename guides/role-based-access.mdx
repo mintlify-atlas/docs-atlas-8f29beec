@@ -1,0 +1,601 @@
+---
+title: 'Role-Based Access Control'
+description: 'Understanding user roles, permissions, and protected routes in the TechHelpDesk API'
+icon: 'user-shield'
+---
+
+## Overview
+
+The TechHelpDesk API implements Role-Based Access Control (RBAC) to restrict access to resources based on user roles. This guide covers the three user roles, their permissions, and how to protect routes with guards.
+
+## User Roles
+
+The system defines three distinct roles in `role.enum.ts`:
+
+<CardGroup cols={3}>
+  <Card title="Admin" icon="crown">
+    Full system access with administrative privileges
+  </Card>
+  
+  <Card title="Technician" icon="screwdriver-wrench">
+    Can manage and resolve tickets assigned to them
+  </Card>
+  
+  <Card title="Client" icon="user">
+    Can create tickets and view their own submissions
+  </Card>
+</CardGroup>
+
+### Role Enum (from role.enum.ts:1-5)
+
+```typescript
+export enum Role {
+  ADMIN = 'admin',
+  TECHNICIAN = 'technician',
+  CLIENT = 'client'
+}
+```
+
+<Info>
+  Roles are assigned during user creation and stored in the database. They're included in the JWT token payload for authorization.
+</Info>
+
+---
+
+## Role Permissions
+
+### Admin Role
+
+Admins have unrestricted access to all system operations:
+
+<Accordion title="Admin Permissions">
+  - Create, read, update, and delete **all tickets**
+  - View **all users** (clients, technicians, admins)
+  - Assign tickets to any technician
+  - Manage categories
+  - Change ticket priorities
+  - Access all API endpoints
+  - Delete tickets permanently
+</Accordion>
+
+### Technician Role
+
+Technicians can manage tickets assigned to them:
+
+<Accordion title="Technician Permissions">
+  - View **all tickets** (to see available work)
+  - Update status of tickets assigned to them
+  - Add comments to tickets
+  - View client information
+  - Change priority of assigned tickets
+  - Cannot delete tickets
+  - Cannot assign tickets to other technicians
+</Accordion>
+
+### Client Role
+
+Clients have limited access focused on their own tickets:
+
+<Accordion title="Client Permissions">
+  - Create new tickets
+  - View **only their own tickets**
+  - Add comments to their tickets
+  - Cannot change ticket status (except closing resolved tickets)
+  - Cannot assign technicians
+  - Cannot delete tickets
+  - Cannot view other clients' tickets
+</Accordion>
+
+---
+
+## Protecting Routes with Guards
+
+The TechHelpDesk API uses the `RolesGuard` to restrict endpoint access based on user roles.
+
+### RolesGuard Implementation (from roles.guard.ts)
+
+```typescript
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import { Role } from '../enums/role.enum';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (!requiredRoles) {
+      return true;
+    }
+
+    const { user } = context.switchToHttp().getRequest();
+    
+    if (!user || !user.role) {
+      throw new ForbiddenException('Usuario no autorizado');
+    }
+
+    const hasRole = requiredRoles.some((role) => user.role === role);
+    
+    if (!hasRole) {
+      throw new ForbiddenException('No tienes permisos para acceder a este recurso');
+    }
+
+    return true;
+  }
+}
+```
+
+### How the Guard Works
+
+<Steps>
+  <Step title="Extract Required Roles">
+    The guard reads role requirements from the `@Roles()` decorator
+  </Step>
+  <Step title="Get User from Request">
+    Extracts the authenticated user from the request object (set by JWT strategy)
+  </Step>
+  <Step title="Check User Role">
+    Verifies if the user's role matches any of the required roles
+  </Step>
+  <Step title="Allow or Deny">
+    Returns `true` to allow access, or throws `ForbiddenException` (403) to deny
+  </Step>
+</Steps>
+
+---
+
+## Roles Decorator
+
+The `@Roles()` decorator marks which roles can access a route.
+
+### Decorator Implementation (from roles.decorator.ts:1-5)
+
+```typescript
+import { SetMetadata } from '@nestjs/common';
+import { Role } from '../enums/role.enum';
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
+```
+
+### Usage in Controllers
+
+<Tabs>
+  <Tab title="Single Role">
+    Restrict to one role:
+    
+    ```typescript
+    @Delete('tickets/:id')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(Role.ADMIN)
+    async deleteTicket(@Param('id') id: string) {
+      return this.ticketsService.remove(id);
+    }
+    ```
+    
+    <Note>
+      Only users with the `admin` role can access this endpoint.
+    </Note>
+  </Tab>
+  
+  <Tab title="Multiple Roles">
+    Allow multiple roles:
+    
+    ```typescript
+    @Get('tickets')
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    @Roles(Role.ADMIN, Role.TECHNICIAN)
+    async getAllTickets() {
+      return this.ticketsService.findAll({});
+    }
+    ```
+    
+    <Note>
+      Both `admin` and `technician` roles can access this endpoint.
+    </Note>
+  </Tab>
+  
+  <Tab title="No Restriction">
+    Authenticated but no role restriction:
+    
+    ```typescript
+    @Get('auth/profile')
+    @UseGuards(AuthGuard('jwt'))
+    async getProfile(@Request() req) {
+      return req.user;
+    }
+    ```
+    
+    <Note>
+      Any authenticated user (admin, technician, or client) can access this endpoint.
+    </Note>
+  </Tab>
+  
+  <Tab title="Public Endpoint">
+    No authentication required:
+    
+    ```typescript
+    @Post('auth/login')
+    async login(@Body() loginDto: LoginDto) {
+      return this.authService.login(loginDto);
+    }
+    ```
+    
+    <Note>
+      No guards applied - completely public endpoint.
+    </Note>
+  </Tab>
+</Tabs>
+
+---
+
+## Role-Specific Operations
+
+### Admin-Only Operations
+
+Operations restricted to administrators:
+
+<CodeGroup>
+
+```typescript Delete Ticket
+@Delete('tickets/:id')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN)
+async remove(@Param('id') id: string) {
+  await this.ticketsService.remove(id);
+  return { message: 'Ticket eliminado exitosamente' };
+}
+```
+
+```typescript Manage All Users
+@Get('users')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN)
+async getAllUsers() {
+  return this.usersService.findAll();
+}
+```
+
+```typescript Create Technician
+@Post('users/technician')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN)
+async createTechnician(@Body() dto: CreateTechnicianDto) {
+  return this.usersService.createTechnician(dto);
+}
+```
+
+</CodeGroup>
+
+### Technician Operations
+
+Operations available to technicians and admins:
+
+<CodeGroup>
+
+```typescript View All Tickets
+@Get('tickets')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN, Role.TECHNICIAN)
+async findAll(@Query() filters: FilterTicketsDto) {
+  return this.ticketsService.findAll(filters);
+}
+```
+
+```typescript Update Ticket Status
+@Patch('tickets/:id')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Roles(Role.ADMIN, Role.TECHNICIAN)
+async update(
+  @Param('id') id: string,
+  @Body() updateDto: UpdateTicketDto
+) {
+  return this.ticketsService.update(id, updateDto);
+}
+```
+
+</CodeGroup>
+
+### Client Operations
+
+Operations available to all authenticated users:
+
+<CodeGroup>
+
+```typescript Create Ticket
+@Post('tickets')
+@UseGuards(AuthGuard('jwt'))
+// No @Roles decorator = all authenticated users
+async create(@Body() dto: CreateTicketDto) {
+  return this.ticketsService.create(dto);
+}
+```
+
+```typescript View Own Profile
+@Get('auth/profile')
+@UseGuards(AuthGuard('jwt'))
+async getProfile(@Request() req) {
+  return req.user;
+}
+```
+
+</CodeGroup>
+
+---
+
+## Authorization Flow
+
+<Steps>
+  <Step title="User Authenticates">
+    User logs in via `/auth/login` and receives a JWT token containing their role
+  </Step>
+  <Step title="Request with Token">
+    User includes the token in the `Authorization: Bearer <token>` header
+  </Step>
+  <Step title="JWT Validation">
+    `AuthGuard('jwt')` validates the token and extracts user data (including role)
+  </Step>
+  <Step title="Role Check">
+    `RolesGuard` checks if the user's role matches the required roles from `@Roles()`
+  </Step>
+  <Step title="Access Decision">
+    Request is allowed (200/201) or denied (403 Forbidden)
+  </Step>
+</Steps>
+
+### Flow Diagram
+
+```
+Request
+  |
+  v
+[JWT Validation] --> Invalid Token --> 401 Unauthorized
+  |
+  | Valid Token
+  v
+[Extract User Role from JWT]
+  |
+  v
+[Check @Roles() Decorator]
+  |
+  +-- No roles required --> Allow Access
+  |
+  +-- Has required role --> Allow Access
+  |
+  +-- Missing required role --> 403 Forbidden
+```
+
+---
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when JWT token is missing or invalid:
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+<Note>
+  This error occurs **before** role checking. The user must be authenticated first.
+</Note>
+
+### 403 Forbidden
+
+Returned when user lacks the required role:
+
+```json
+{
+  "statusCode": 403,
+  "message": "No tienes permisos para acceder a este recurso",
+  "error": "Forbidden"
+}
+```
+
+<Warning>
+  This error means the user is authenticated but doesn't have permission for this operation.
+</Warning>
+
+### Missing User or Role
+
+Returned when the user object or role is missing:
+
+```json
+{
+  "statusCode": 403,
+  "message": "Usuario no autorizado",
+  "error": "Forbidden"
+}
+```
+
+---
+
+## Testing Role-Based Access
+
+### Example: Admin Deleting a Ticket
+
+<CodeGroup>
+
+```bash Success (Admin)
+curl -X DELETE https://api.techhelpdesk.com/tickets/123 \
+  -H "Authorization: Bearer <admin_token>"
+
+# Response: 200 OK
+{
+  "message": "Ticket eliminado exitosamente"
+}
+```
+
+```bash Forbidden (Technician)
+curl -X DELETE https://api.techhelpdesk.com/tickets/123 \
+  -H "Authorization: Bearer <technician_token>"
+
+# Response: 403 Forbidden
+{
+  "statusCode": 403,
+  "message": "No tienes permisos para acceder a este recurso",
+  "error": "Forbidden"
+}
+```
+
+</CodeGroup>
+
+### Example: Viewing All Tickets
+
+<CodeGroup>
+
+```bash Admin or Technician
+curl -X GET https://api.techhelpdesk.com/tickets \
+  -H "Authorization: Bearer <admin_or_tech_token>"
+
+# Response: 200 OK
+[
+  { "id": "123", "title": "Network issue", ... },
+  { "id": "456", "title": "Email problem", ... }
+]
+```
+
+```bash Client
+curl -X GET https://api.techhelpdesk.com/tickets \
+  -H "Authorization: Bearer <client_token>"
+
+# Response: 403 Forbidden
+{
+  "statusCode": 403,
+  "message": "No tienes permisos para acceder a este recurso"
+}
+```
+
+</CodeGroup>
+
+---
+
+## Role in JWT Token
+
+The user's role is embedded in the JWT token payload during authentication.
+
+### Token Payload (from auth.service.ts:48-53)
+
+```typescript
+async login(user: any) {
+  const payload = { 
+    email: user.email, 
+    sub: user.id,
+    role: user.role // Role included here
+  };
+  return {
+    access_token: this.jwtService.sign(payload),
+  };
+}
+```
+
+### Extracted User Object (from jwt.strategy.ts:19-22)
+
+```typescript
+async validate(payload: any) {
+  // This object is attached to request.user
+  return { 
+    userId: payload.sub, 
+    email: payload.email, 
+    role: payload.role  // Role available in request.user
+  };
+}
+```
+
+<Info>
+  The role in `request.user` is what the `RolesGuard` checks against the `@Roles()` decorator requirements.
+</Info>
+
+---
+
+## Implementation Checklist
+
+When implementing role-based access in your controllers:
+
+<AccordionGroup>
+  <Accordion title="Step 1: Import Dependencies">
+    ```typescript
+    import { UseGuards } from '@nestjs/common';
+    import { AuthGuard } from '@nestjs/passport';
+    import { RolesGuard } from '../common/guards/roles.guard';
+    import { Roles } from '../common/decorators/roles.decorator';
+    import { Role } from '../common/enums/role.enum';
+    ```
+  </Accordion>
+  
+  <Accordion title="Step 2: Apply Guards">
+    ```typescript
+    @UseGuards(AuthGuard('jwt'), RolesGuard)
+    ```
+    
+    <Warning>
+      Order matters! `AuthGuard` must come before `RolesGuard` to ensure the user is authenticated first.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Step 3: Specify Required Roles">
+    ```typescript
+    @Roles(Role.ADMIN, Role.TECHNICIAN)
+    ```
+    
+    <Note>
+      Omit `@Roles()` decorator if all authenticated users should have access.
+    </Note>
+  </Accordion>
+  
+  <Accordion title="Step 4: Access User in Handler">
+    ```typescript
+    async myHandler(@Request() req) {
+      const userId = req.user.userId;
+      const userRole = req.user.role;
+      // Use user data for business logic
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Principle of Least Privilege" icon="shield">
+    Grant users the minimum permissions needed to perform their job functions
+  </Card>
+  
+  <Card title="Consistent Guard Order" icon="layer-group">
+    Always apply `AuthGuard` before `RolesGuard` to ensure proper authentication
+  </Card>
+  
+  <Card title="Explicit Role Checks" icon="check-double">
+    Use `@Roles()` decorator explicitly rather than checking roles in business logic
+  </Card>
+  
+  <Card title="Clear Error Messages" icon="message">
+    Return descriptive error messages that don't expose sensitive system details
+  </Card>
+</CardGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    Learn how to obtain JWT tokens with role information
+  </Card>
+  
+  <Card title="Ticket Workflow" icon="diagram-project" href="/guides/ticket-workflow">
+    Understand which roles can perform different ticket operations
+  </Card>
+</CardGroup>

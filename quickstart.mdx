@@ -1,80 +1,298 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get TechHelpDesk API running in under 5 minutes
 ---
 
-## Get started in three steps
+# Quickstart Guide
 
-Get your documentation site running locally and make your first customization.
+Get TechHelpDesk API up and running quickly with this streamlined guide. For detailed configuration options, see the [Installation Guide](/installation).
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+Before you begin, ensure you have:
+
+- **Node.js** 16+ installed
+- **PostgreSQL** 12+ installed or Docker for containerized setup
+- **Git** for cloning the repository
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/SantiagoPortillo1/Prueba-de-Desempe-o-M-dulo-Node.js-con-NestJS-y-TypeORM.git
+    cd Prueba-de-Desempe-o-M-dulo-Node.js-con-NestJS-y-TypeORM
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    This will install all required packages including NestJS, TypeORM, and PostgreSQL drivers.
+  </Step>
+
+  <Step title="Start PostgreSQL database">
+    Using Docker Compose (recommended):
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    ```bash
+    docker-compose up -d
+    ```
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    This starts PostgreSQL with the following credentials:
+    - **Host**: localhost:5432
+    - **Database**: helpdesk_db
+    - **User**: admin
+    - **Password**: root
+    
+    <Note>
+      If you're using a local PostgreSQL installation, create a database named `helpdesk_db` and update the credentials in your `.env` file.
+    </Note>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Configure environment variables">
+    Create a `.env` file in the project root:
+    
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Update the `.env` file with your database configuration:
+    
+    ```bash .env
+    # Database Configuration
+    DB_HOST=localhost
+    DB_PORT=5432
+    DB_USERNAME=admin
+    DB_PASSWORD=root
+    DB_DATABASE=helpdesk_db
+    
+    # JWT Configuration
+    JWT_SECRET=your-secret-key-change-this-in-production
+    JWT_EXPIRES_IN=1h
+    
+    # Server Configuration
+    PORT=3000
+    NODE_ENV=development
+    ```
+    
+    <Warning>
+      Change the `JWT_SECRET` to a secure random string in production environments.
+    </Warning>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Run database migrations">
+    ```bash
+    npm run migration:run
+    ```
+    
+    This creates all necessary database tables and relationships.
+  </Step>
 
-### Step 3: Go live
+  <Step title="Start the development server">
+    ```bash
+    npm run start:dev
+    ```
+    
+    The API server will start on `http://localhost:3000`
+    
+    You should see output similar to:
+    ```
+    [Nest] Application is running on: http://localhost:3000/docs
+    ```
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Verify Installation
 
-## Next steps
+### Access Swagger Documentation
 
-Now that you have your docs running, explore these key features:
+Open your browser and navigate to:
 
-<CardGroup cols={2}>
+```
+http://localhost:3000/docs
+```
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+You'll see the interactive Swagger UI with all available endpoints documented.
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+### Make Your First API Call
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+<Tabs>
+  <Tab title="Using cURL">
+    Test the API by logging in:
+    
+    ```bash
+    curl -X POST http://localhost:3000/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "admin@example.com",
+        "password": "password123"
+      }'
+    ```
+    
+    Expected response:
+    ```json
+    {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "user": {
+        "id": "uuid-here",
+        "email": "admin@example.com",
+        "role": "admin"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Using Swagger UI">
+    1. Click on **POST /auth/login** endpoint
+    2. Click **Try it out**
+    3. Enter the request body:
+       ```json
+       {
+         "email": "admin@example.com",
+         "password": "password123"
+       }
+       ```
+    4. Click **Execute**
+    5. Copy the `access_token` from the response
+    6. Click the **Authorize** button at the top of the page
+    7. Enter `Bearer YOUR_TOKEN` and click **Authorize**
+    
+    Now you can test all protected endpoints!
+  </Tab>
+  
+  <Tab title="Using JavaScript">
+    ```javascript
+    const response = await fetch('http://localhost:3000/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'admin@example.com',
+        password: 'password123'
+      })
+    });
+    
+    const data = await response.json();
+    console.log('Token:', data.access_token);
+    ```
+  </Tab>
+</Tabs>
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+## Create Your First Ticket
 
-</CardGroup>
+Once authenticated, create a support ticket:
+
+```bash
+curl -X POST http://localhost:3000/tickets \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Server not responding",
+    "description": "The application server is not responding to requests",
+    "clientId": "client-uuid",
+    "categoryId": "category-uuid",
+    "priority": "high"
+  }'
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Replace `YOUR_TOKEN`, `client-uuid`, and `category-uuid` with actual values. You can get UUIDs from the database or create users and categories first.
 </Note>
+
+## Seed Database with Sample Data
+
+To populate the database with sample users, categories, and tickets:
+
+```bash
+npm run seed
+```
+
+This creates:
+- Admin user: `admin@example.com` / `password123`
+- Sample clients and technicians
+- Ticket categories (Hardware, Software, Network)
+- Sample support tickets
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication Guide" icon="lock" href="/guides/authentication">
+    Learn how to implement JWT authentication and manage user sessions
+  </Card>
+  
+  <Card title="Ticket Workflow" icon="diagram-project" href="/guides/ticket-workflow">
+    Understand the complete ticket lifecycle and status transitions
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/tickets/overview">
+    Explore all available endpoints with detailed documentation
+  </Card>
+  
+  <Card title="Database Setup" icon="database" href="/database/setup">
+    Advanced database configuration and migration management
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+<Accordion title="Connection to database refused">
+  **Problem**: Cannot connect to PostgreSQL database.
+  
+  **Solutions**:
+  - Ensure PostgreSQL is running: `docker-compose ps` or `sudo systemctl status postgresql`
+  - Check database credentials in `.env` file match your PostgreSQL setup
+  - Verify the port 5432 is not already in use: `lsof -i :5432`
+  - Check PostgreSQL logs for connection errors
+</Accordion>
+
+<Accordion title="Migration error: relation already exists">
+  **Problem**: Database tables already exist from a previous installation.
+  
+  **Solutions**:
+  - Drop the database and recreate it: `npm run schema:drop && npm run migration:run`
+  - Or manually drop tables and re-run migrations
+  - Restore from the SQL dump: `psql -U admin -d helpdesk_db < database/dump.sql`
+</Accordion>
+
+<Accordion title="JWT token validation fails">
+  **Problem**: Protected endpoints return 401 Unauthorized.
+  
+  **Solutions**:
+  - Ensure you're including the Bearer prefix: `Authorization: Bearer YOUR_TOKEN`
+  - Check that the JWT_SECRET in `.env` matches the one used to generate the token
+  - Verify the token hasn't expired (default: 1 hour)
+  - Get a fresh token by logging in again
+</Accordion>
+
+<Accordion title="Port 3000 already in use">
+  **Problem**: Another application is using port 3000.
+  
+  **Solutions**:
+  - Change the port in `.env`: `PORT=3001`
+  - Or stop the application using port 3000: `lsof -ti:3000 | xargs kill -9`
+</Accordion>
+
+## Development Tips
+
+<Tip>
+  **Hot Reload**: The development server automatically restarts when you make changes to source files.
+</Tip>
+
+<Tip>
+  **Database Management**: Use tools like pgAdmin or DBeaver to visualize and manage your PostgreSQL database.
+</Tip>
+
+<Tip>
+  **API Testing**: Install [Postman](https://www.postman.com/) or [Insomnia](https://insomnia.rest/) for advanced API testing beyond Swagger UI.
+</Tip>
+
+## Production Deployment
+
+For production deployment, see the [Installation Guide](/installation) for:
+- Environment-specific configuration
+- Production security settings
+- Database optimization
+- Server deployment options

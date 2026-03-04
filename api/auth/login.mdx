@@ -1,0 +1,125 @@
+---
+title: 'Login'
+api: 'POST /auth/login'
+description: 'Authenticate user and get JWT token'
+---
+
+## Description
+
+Authenticates a user with email and password credentials. Upon successful authentication, returns a JWT access token that can be used for subsequent authenticated requests.
+
+The endpoint validates credentials against the database using bcrypt password hashing and returns a signed JWT token containing the user's email, ID, and role.
+
+## Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address. Must be a valid email format.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password. Must be at least 6 characters long.
+</ParamField>
+
+## Response
+
+<ResponseField name="access_token" type="string">
+  JWT token signed with user payload (email, sub, role). Use this token in the Authorization header for authenticated requests.
+</ResponseField>
+
+## Error Responses
+
+<ResponseField name="401 Unauthorized" type="object">
+  Returned when credentials are invalid (user not found, password incorrect, or user missing password in database).
+  
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Credenciales incorrectas",
+    "error": "Unauthorized"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="400 Bad Request" type="object">
+  Returned when request body validation fails (invalid email format, missing fields, or password too short).
+  
+  ```json
+  {
+    "statusCode": 400,
+    "message": [
+      "El formato del email es inválido",
+      "La contraseña debe tener mínimo 6 caracteres"
+    ],
+    "error": "Bad Request"
+  }
+  ```
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.example.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "securePassword123"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.example.com/auth/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'securePassword123'
+  })
+});
+
+const data = await response.json();
+console.log(data.access_token);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://api.example.com/auth/login',
+    json={
+        'email': 'user@example.com',
+        'password': 'securePassword123'
+    }
+)
+
+data = response.json()
+print(data['access_token'])
+```
+
+</CodeGroup>
+
+## Example Response
+
+```json 200 OK
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJzdWIiOiI5YjFkZWIxZC00NmIyLTRkZjMtOGFiMi1mZjhmZjkyZWY3NjgiLCJyb2xlIjoiY2xpZW50IiwiaWF0IjoxNzA5NTY3ODkwLCJleHAiOjE3MDk1NzE0OTB9.Xz8Y1a2B3c4D5e6F7g8H9i0J1k2L3m4N5o6P7q8R9s0"
+}
+```
+
+## Implementation Details
+
+Implemented in:
+- Controller: `src/modules/auth/auth.controller.ts:11`
+- Service: `src/modules/auth/auth.service.ts:13` (validateUser), `src/modules/auth/auth.service.ts:48` (login)
+- DTO: `src/modules/auth/dto/login.dto.ts:3`
+
+The authentication flow:
+1. Validates email format and password length using class-validator
+2. Searches for user by email in the database
+3. Verifies password exists in database record
+4. Compares provided password with hashed password using bcrypt
+5. If valid, generates JWT token with payload containing email, user ID (sub), and role
+6. Returns access token for use in authenticated requests

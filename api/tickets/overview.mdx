@@ -1,0 +1,125 @@
+---
+title: 'Tickets API Overview'
+description: 'Complete reference for managing support tickets in the system'
+---
+
+## Introduction
+
+The Tickets API allows you to create, retrieve, update, and delete support tickets. Tickets are the core entity for tracking customer issues and technical support requests.
+
+## Available Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/tickets` | Create a new support ticket |
+| GET | `/tickets` | List all tickets with optional filtering |
+| GET | `/tickets/:id` | Get a specific ticket by ID |
+| PATCH | `/tickets/:id` | Update ticket status, priority, or assignment |
+| DELETE | `/tickets/:id` | Delete a ticket (admin only) |
+
+## Authentication
+
+All Tickets API endpoints require authentication using JWT Bearer tokens.
+
+<Note>
+Include the authentication token in the `Authorization` header:
+```
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+</Note>
+
+## Common Response Codes
+
+| Status Code | Description |
+|-------------|-------------|
+| `200` | Request successful |
+| `201` | Ticket created successfully |
+| `400` | Invalid request data or validation error |
+| `401` | Authentication required |
+| `403` | Insufficient permissions |
+| `404` | Ticket not found |
+| `500` | Internal server error |
+
+## Ticket Object Schema
+
+The Ticket object represents a support ticket in the system.
+
+<ResponseField name="id" type="string" required>
+  Unique identifier (UUID) for the ticket
+</ResponseField>
+
+<ResponseField name="title" type="string" required>
+  Brief title summarizing the issue
+</ResponseField>
+
+<ResponseField name="description" type="string" required>
+  Detailed description of the problem
+</ResponseField>
+
+<ResponseField name="status" type="enum" required>
+  Current status of the ticket
+  
+  **Possible values:**
+  - `open` - Ticket is newly created and awaiting assignment
+  - `in_progress` - Ticket is being actively worked on
+  - `resolved` - Issue has been resolved
+  - `closed` - Ticket is closed and archived
+</ResponseField>
+
+<ResponseField name="priority" type="enum" required>
+  Priority level of the ticket
+  
+  **Possible values:**
+  - `low` - Low priority issue
+  - `medium` - Medium priority (default)
+  - `high` - High priority, requires immediate attention
+</ResponseField>
+
+<ResponseField name="client" type="object" required>
+  Client who created the ticket (relationship)
+</ResponseField>
+
+<ResponseField name="technician" type="object">
+  Technician assigned to the ticket (nullable)
+</ResponseField>
+
+<ResponseField name="category" type="object" required>
+  Category the ticket belongs to (relationship)
+</ResponseField>
+
+<ResponseField name="createdAt" type="string" required>
+  Timestamp when the ticket was created (ISO 8601 format)
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string" required>
+  Timestamp when the ticket was last updated (ISO 8601 format)
+</ResponseField>
+
+## Status Transitions
+
+<Warning>
+Not all status transitions are allowed. For example, you cannot change directly from `open` to `closed` without going through `in_progress` or `resolved`.
+</Warning>
+
+Typical ticket workflow:
+1. **open** → Newly created ticket
+2. **in_progress** → Technician assigned and working on it
+3. **resolved** → Issue fixed, awaiting client confirmation
+4. **closed** → Ticket archived
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Create Ticket" icon="plus" href="/api/tickets/create">
+    Learn how to create a new support ticket
+  </Card>
+  <Card title="List Tickets" icon="list" href="/api/tickets/list">
+    Retrieve and filter tickets
+  </Card>
+  <Card title="Update Ticket" icon="pen" href="/api/tickets/update">
+    Update ticket status and assignments
+  </Card>
+  <Card title="Delete Ticket" icon="trash" href="/api/tickets/delete">
+    Remove tickets from the system
+  </Card>
+</CardGroup>

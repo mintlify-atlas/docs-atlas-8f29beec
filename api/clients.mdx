@@ -1,0 +1,177 @@
+---
+title: "Clients API"
+description: "Overview of client profiles and ticket management"
+---
+
+## Introduction
+
+The Clients API manages client profile data for users with the `client` role. Clients are customers who create support tickets and track their resolution.
+
+## Client Entity Schema
+
+The Client entity extends user accounts with client-specific information:
+
+<ResponseField name="id" type="string" required>
+  Unique UUID identifier (shared with associated User entity)
+</ResponseField>
+
+<ResponseField name="company" type="string">
+  Company or organization name
+  
+  **Max Length**: 255 characters
+  
+  **Example**: `"Tech Solutions Inc"`
+  
+  **Nullable**: Yes
+</ResponseField>
+
+<ResponseField name="contactEmail" type="string" required>
+  Primary contact email address
+  
+  **Max Length**: 255 characters
+  
+  **Example**: `"contact@techsolutions.com"`
+</ResponseField>
+
+<ResponseField name="phone" type="string">
+  Contact phone number
+  
+  **Max Length**: 50 characters
+  
+  **Example**: `"+1-555-0123"`
+  
+  **Nullable**: Yes
+</ResponseField>
+
+<ResponseField name="user" type="object" required>
+  One-to-one relationship with User entity
+</ResponseField>
+
+<ResponseField name="tickets" type="array">
+  Array of tickets created by this client
+</ResponseField>
+
+<ResponseField name="createdAt" type="datetime">
+  Timestamp when the client profile was created
+  
+  **Default**: Current timestamp
+</ResponseField>
+
+<ResponseField name="updatedAt" type="datetime">
+  Timestamp when the client profile was last updated
+  
+  **Default**: Current timestamp (auto-updates on modification)
+</ResponseField>
+
+## Entity Relationships
+
+### User Relationship (One-to-One)
+
+Each client profile is linked to exactly one user account:
+
+- The client ID matches the user ID (shared primary key)
+- Deleting the user will cascade delete the client profile
+- Created automatically when a user with role `client` is registered
+
+```typescript
+@OneToOne(() => User, { onDelete: 'CASCADE' })
+@JoinColumn({ name: 'id' })
+user: User;
+```
+
+### Tickets Relationship (One-to-Many)
+
+Clients can create and own multiple tickets:
+
+- Each ticket has a required `client_id` foreign key
+- Clients can view and track all their submitted tickets
+- The relationship allows querying all tickets for a specific client
+
+```typescript
+@OneToMany(() => Ticket, (ticket) => ticket.client)
+tickets: Ticket[];
+```
+
+## Client Creation Flow
+
+When creating a new user with the `client` role through the Users API:
+
+1. User entity is created with hashed password
+2. If `company` field is provided in the request, a Client profile is automatically created
+3. The client profile is linked to the user via shared ID
+4. Client can immediately start creating tickets
+
+**Example user creation with client data:**
+
+```json
+{
+  "name": "Santiago Portillo",
+  "email": "santiagoportillo@gmail.com",
+  "password": "123456",
+  "role": "client",
+  "company": "Tech Solutions Inc"
+}
+```
+
+## Client Data Model
+
+The complete data structure combining User and Client entities:
+
+```json
+{
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "Santiago Portillo",
+    "email": "santiagoportillo@gmail.com",
+    "role": "client",
+    "createdAt": "2026-03-04T10:30:00.000Z",
+    "updatedAt": "2026-03-04T10:30:00.000Z"
+  },
+  "clientProfile": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "company": "Tech Solutions Inc",
+    "contactEmail": "contact@techsolutions.com",
+    "phone": "+1-555-0123",
+    "createdAt": "2026-03-04T10:30:00.000Z",
+    "updatedAt": "2026-03-04T10:30:00.000Z"
+  }
+}
+```
+
+## Database Schema
+
+The clients table structure:
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | Primary Key, Foreign Key to users.id |
+| company | VARCHAR(255) | NULLABLE |
+| contactEmail | VARCHAR(255) | NOT NULL |
+| phone | VARCHAR(50) | NULLABLE |
+| createdAt | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
+| updatedAt | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP ON UPDATE |
+
+## Ticket Management
+
+Clients interact with tickets through the Tickets API:
+
+- **Create tickets**: Submit new support requests
+- **View tickets**: See all their submitted tickets
+- **Update tickets**: Add comments or additional information
+- **Track status**: Monitor ticket resolution progress
+
+<Note>
+  Clients cannot be assigned to tickets as technicians. Only users with the `technician` role can be assigned to resolve tickets.
+</Note>
+
+## API Endpoints
+
+<Note>
+  Client profiles are managed through the [Users API](/api/users/overview). Create a user with `role: "client"` and include the optional `company` field to create a client profile.
+</Note>
+
+## Implementation Details
+
+The Client entity is defined in two locations:
+- Main entity: `/home/daytona/workspace/source/src/modules/clients/entities/client.entity.ts:1-28`
+- Users module variant: `/home/daytona/workspace/source/src/modules/users/entities/client.entity.ts:1-23`

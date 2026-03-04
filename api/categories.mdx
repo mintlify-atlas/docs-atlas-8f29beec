@@ -1,0 +1,107 @@
+---
+title: "Categories API"
+description: "Overview of ticket categories and classification system"
+---
+
+## Introduction
+
+The Categories API manages ticket categorization in the help desk system. Categories help organize and classify support tickets for better management and reporting.
+
+## Category Entity Schema
+
+The Category entity represents a ticket classification with the following structure:
+
+<ResponseField name="id" type="string" required>
+  Unique UUID identifier for the category
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Name of the category
+  
+  **Example**: `"Hardware Issues"`, `"Software Support"`, `"Network Problems"`
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Optional detailed description of the category
+  
+  **Example**: `"Issues related to computer hardware, peripherals, and physical devices"`
+</ResponseField>
+
+<ResponseField name="tickets" type="array">
+  Array of tickets associated with this category
+  
+  **Relationship**: One-to-many with Ticket entity
+</ResponseField>
+
+## Entity Relationships
+
+### Tickets Relationship
+
+Categories have a one-to-many relationship with tickets:
+
+- Each category can be associated with multiple tickets
+- Each ticket must belong to exactly one category (required field)
+- The relationship is managed through the `category_id` foreign key in the tickets table
+
+```typescript
+@OneToMany(() => Ticket, (ticket) => ticket.category)
+tickets: Ticket[];
+```
+
+## Usage in Tickets
+
+When creating or updating a ticket, the category is a required field. This ensures every ticket is properly classified for:
+
+- **Routing**: Directing tickets to appropriate support teams
+- **Reporting**: Analyzing ticket distribution by category
+- **SLA Management**: Applying category-specific service level agreements
+- **Priority**: Setting default priorities based on category
+
+## Example Category Data
+
+Typical categories in a help desk system might include:
+
+```json
+[
+  {
+    "id": "cat-001",
+    "name": "Hardware Issues",
+    "description": "Problems with physical devices, computers, and peripherals"
+  },
+  {
+    "id": "cat-002",
+    "name": "Software Support",
+    "description": "Application errors, installation issues, and software bugs"
+  },
+  {
+    "id": "cat-003",
+    "name": "Network Problems",
+    "description": "Connectivity issues, VPN, and network infrastructure"
+  },
+  {
+    "id": "cat-004",
+    "name": "Account Access",
+    "description": "Password resets, permissions, and account management"
+  }
+]
+```
+
+## Database Schema
+
+The categories table structure:
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | Primary Key |
+| name | VARCHAR | NOT NULL |
+| description | VARCHAR | NULLABLE |
+
+## API Endpoints
+
+<Note>
+  The Categories controller currently has no exposed endpoints. Category management is handled through backend services or admin interfaces.
+</Note>
+
+## Implementation Details
+
+The Category entity is defined at `/home/daytona/workspace/source/src/modules/categories/entities/category.entity.ts:1-17` and the controller at `/home/daytona/workspace/source/src/modules/categories/categories.controller.ts:1-7`.

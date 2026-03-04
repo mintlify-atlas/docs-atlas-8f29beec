@@ -1,0 +1,203 @@
+---
+title: "Technicians API"
+description: "Overview of technician profiles and ticket assignment"
+---
+
+## Introduction
+
+The Technicians API manages technician profile data for users with the `technician` role. Technicians are support staff who are assigned to and resolve client tickets.
+
+## Technician Entity Schema
+
+The Technician entity extends user accounts with technician-specific information:
+
+<ResponseField name="id" type="string" required>
+  Unique UUID identifier (shared with associated User entity)
+</ResponseField>
+
+<ResponseField name="specialty" type="string">
+  Technical specialty or area of expertise
+  
+  **Max Length**: 100 characters
+  
+  **Example**: `"Network Infrastructure"`, `"Database Administration"`, `"Frontend Development"`
+  
+  **Nullable**: Yes
+</ResponseField>
+
+<ResponseField name="availability" type="boolean" required>
+  Current availability status for ticket assignment
+  
+  **Default**: `true`
+  
+  - `true`: Technician is available and can be assigned new tickets
+  - `false`: Technician is unavailable (vacation, overloaded, etc.)
+</ResponseField>
+
+<ResponseField name="user" type="object" required>
+  One-to-one relationship with User entity
+</ResponseField>
+
+<ResponseField name="tickets" type="array">
+  Array of tickets assigned to this technician
+</ResponseField>
+
+<ResponseField name="createdAt" type="datetime">
+  Timestamp when the technician profile was created
+  
+  **Default**: Current timestamp
+</ResponseField>
+
+<ResponseField name="updatedAt" type="datetime">
+  Timestamp when the technician profile was last updated
+  
+  **Default**: Current timestamp (auto-updates on modification)
+</ResponseField>
+
+## Entity Relationships
+
+### User Relationship (One-to-One)
+
+Each technician profile is linked to exactly one user account:
+
+- The technician ID matches the user ID (shared primary key)
+- Deleting the user will cascade delete the technician profile
+- Created automatically when a user with role `technician` is registered
+
+```typescript
+@OneToOne(() => User, { onDelete: 'CASCADE' })
+@JoinColumn({ name: 'id' })
+user: User;
+```
+
+### Tickets Relationship (One-to-Many)
+
+Technicians can be assigned to multiple tickets:
+
+- Each ticket has an optional `technician_id` foreign key
+- Tickets start without an assigned technician (null)
+- Technicians can view and manage all their assigned tickets
+- The relationship allows querying workload per technician
+
+```typescript
+@OneToMany(() => Ticket, (ticket) => ticket.technician)
+tickets: Ticket[];
+```
+
+## Technician Creation Flow
+
+When creating a new user with the `technician` role through the Users API:
+
+1. User entity is created with hashed password
+2. If `specialty` field is provided in the request, a Technician profile is automatically created
+3. The technician profile is linked to the user via shared ID
+4. Technician is set as available by default and can be assigned to tickets
+
+**Example user creation with technician data:**
+
+```json
+{
+  "name": "Maria Rodriguez",
+  "email": "maria.rodriguez@company.com",
+  "password": "secure123",
+  "role": "technician",
+  "specialty": "Network Infrastructure"
+}
+```
+
+## Availability Management
+
+The `availability` field controls whether a technician can be assigned new tickets:
+
+- **Available (`true`)**: Technician appears in assignment lists and can receive new tickets
+- **Unavailable (`false`)**: Technician is hidden from assignment options but can still work on existing tickets
+
+Common reasons for setting availability to false:
+- Vacation or time off
+- Already at capacity with assigned tickets
+- Training or attending conferences
+- Temporarily working on other projects
+
+## Technician Data Model
+
+The complete data structure combining User and Technician entities:
+
+```json
+{
+  "user": {
+    "id": "660e8400-e29b-41d4-a716-446655440000",
+    "name": "Maria Rodriguez",
+    "email": "maria.rodriguez@company.com",
+    "role": "technician",
+    "createdAt": "2026-03-04T10:30:00.000Z",
+    "updatedAt": "2026-03-04T10:30:00.000Z"
+  },
+  "technicianProfile": {
+    "id": "660e8400-e29b-41d4-a716-446655440000",
+    "specialty": "Network Infrastructure",
+    "availability": true,
+    "createdAt": "2026-03-04T10:30:00.000Z",
+    "updatedAt": "2026-03-04T10:30:00.000Z"
+  }
+}
+```
+
+## Database Schema
+
+The technicians table structure:
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | Primary Key, Foreign Key to users.id |
+| specialty | VARCHAR(100) | NULLABLE |
+| availability | BOOLEAN | NOT NULL, DEFAULT true |
+| createdAt | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
+| updatedAt | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP ON UPDATE |
+
+## Ticket Assignment
+
+Technicians interact with tickets through the Tickets API:
+
+- **View assigned tickets**: See all tickets assigned to them
+- **Update ticket status**: Change status from open → in_progress → resolved → closed
+- **Add comments**: Communicate with clients about ticket progress
+- **Resolve tickets**: Mark tickets as resolved once the issue is fixed
+
+### Assignment Rules
+
+<Note>
+  Only users with the `technician` role can be assigned to tickets. Clients and admins cannot be assigned as ticket handlers.
+</Note>
+
+- Tickets can be assigned to only one technician at a time
+- Assignment is optional - tickets can remain unassigned
+- Available technicians (`availability: true`) should be prioritized for new assignments
+- Specialty field can be used to match tickets to appropriate experts
+
+## Workload Management
+
+Query technician workload by counting associated tickets:
+
+```typescript
+// Find technicians with their ticket counts
+const technicians = await technicianRepository.find({
+  relations: ['tickets'],
+  where: { availability: true }
+});
+
+technicians.forEach(tech => {
+  console.log(`${tech.user.name}: ${tech.tickets.length} tickets`);
+});
+```
+
+## API Endpoints
+
+<Note>
+  Technician profiles are managed through the [Users API](/api/users/overview). Create a user with `role: "technician"` and include the optional `specialty` field to create a technician profile.
+</Note>
+
+## Implementation Details
+
+The Technician entity is defined in two locations:
+- Main entity: `/home/daytona/workspace/source/src/modules/technicians/entities/technician.entity.ts:1-25`
+- Users module variant: `/home/daytona/workspace/source/src/modules/users/entities/technician.entity.ts:1-23`

@@ -1,0 +1,697 @@
+---
+title: 'Filtering Tickets'
+description: 'Learn how to filter and search tickets by status, priority, technician, and client'
+icon: 'filter'
+---
+
+## Overview
+
+The TechHelpDesk API provides powerful filtering capabilities to help you find specific tickets. You can filter by status, priority, assigned technician, or client, and combine multiple filters for precise queries.
+
+## Available Filters
+
+The `/tickets` endpoint supports four filter parameters:
+
+<ParamField query="status" type="string">
+  Filter by ticket status: `open`, `in_progress`, `resolved`, or `closed`
+</ParamField>
+
+<ParamField query="priority" type="string">
+  Filter by priority level: `low`, `medium`, or `high`
+</ParamField>
+
+<ParamField query="technicianId" type="string">
+  Filter by assigned technician's UUID
+</ParamField>
+
+<ParamField query="clientId" type="string">
+  Filter by client's UUID who created the ticket
+</ParamField>
+
+<Info>
+  All filters are optional. Omitting all filters returns all tickets (subject to role-based access control).
+</Info>
+
+---
+
+## Filter Implementation
+
+The filtering logic is implemented in `tickets.service.ts`.
+
+### Service Interface (from tickets.service.ts:8-13)
+
+```typescript
+export interface FindAllTicketsParams {
+  status?: TicketStatus;
+  priority?: string;
+  technicianId?: string;
+  clientId?: string;
+}
+```
+
+### Filter Logic (from tickets.service.ts:33-46)
+
+```typescript
+async findAll(params: FindAllTicketsParams) {
+  const { status, priority, technicianId, clientId } = params;
+  const where: FindOptionsWhere<Ticket> = {};
+
+  if (status) where.status = status;
+  if (priority) where.priority = priority as any;
+  if (technicianId) where.technician = { id: technicianId };
+  if (clientId) where.client = { id: clientId };
+
+  return this.ticketRepository.find({
+    where,
+    relations: ['client', 'technician', 'category'],
+    order: { createdAt: 'DESC' },
+  });
+}
+```
+
+<Note>
+  Results are always sorted by creation date in descending order (newest first).
+</Note>
+
+---
+
+## Controller Endpoint (from tickets.controller.ts:77-117)
+
+### GET /tickets
+
+```typescript
+@Get()
+@ApiQuery({
+  name: 'status',
+  required: false,
+  enum: Object.values(TicketStatus),
+  description: 'Filtrar por estado del ticket'
+})
+@ApiQuery({
+  name: 'priority',
+  required: false,
+  enum: Object.values(TicketPriority),
+  description: 'Filtrar por prioridad del ticket'
+})
+@ApiQuery({
+  name: 'technicianId',
+  required: false,
+  type: String,
+  description: 'Filtrar por ID del técnico asignado'
+})
+@ApiQuery({
+  name: 'clientId',
+  required: false,
+  type: String,
+  description: 'Filtrar por ID del cliente'
+})
+async findAll(
+  @Query('status') status?: TicketStatus,
+  @Query('priority') priority?: TicketPriority,
+  @Query('technicianId') technicianId?: string,
+  @Query('clientId') clientId?: string,
+) {
+  return this.ticketsService.findAll({ status, priority, technicianId, clientId });
+}
+```
+
+---
+
+## Filter by Status
+
+Filter tickets by their current lifecycle state.
+
+### Status Values
+
+- `open` - New tickets awaiting assignment
+- `in_progress` - Tickets actively being worked on
+- `resolved` - Tickets marked as resolved
+- `closed` - Permanently closed tickets
+
+### Example Requests
+
+<CodeGroup>
+
+```bash All Open Tickets
+curl -X GET "https://api.techhelpdesk.com/tickets?status=open" \
+  -H "Authorization: Bearer <token>"
+```
+
+```bash All Resolved Tickets
+curl -X GET "https://api.techhelpdesk.com/tickets?status=resolved" \
+  -H "Authorization: Bearer <token>"
+```
+
+```bash Tickets In Progress
+curl -X GET "https://api.techhelpdesk.com/tickets?status=in_progress" \
+  -H "Authorization: Bearer <token>"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.techhelpdesk.com/tickets?status=open',
+  {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+
+const openTickets = await response.json();
+console.log(`Found ${openTickets.length} open tickets`);
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://api.techhelpdesk.com/tickets',
+    params={'status': 'open'},
+    headers={'Authorization': f'Bearer {token}'}
+)
+
+open_tickets = response.json()
+print(f"Found {len(open_tickets)} open tickets")
+```
+
+</CodeGroup>
+
+### Response Example
+
+```json
+[
+  {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "title": "Email login issue",
+    "description": "Cannot access email account",
+    "status": "open",
+    "priority": "high",
+    "client": {
+      "id": "client-001",
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "technician": null,
+    "category": {
+      "id": "cat-001",
+      "name": "Email"
+    },
+    "createdAt": "2024-03-15T10:30:00.000Z",
+    "updatedAt": "2024-03-15T10:30:00.000Z"
+  }
+]
+```
+
+---
+
+## Filter by Priority
+
+Filter tickets by urgency level.
+
+### Priority Values
+
+- `low` - Non-critical issues
+- `medium` - Standard priority (default)
+- `high` - Urgent issues requiring immediate attention
+
+### Example Requests
+
+<CodeGroup>
+
+```bash High Priority Tickets
+curl -X GET "https://api.techhelpdesk.com/tickets?priority=high" \
+  -H "Authorization: Bearer <token>"
+```
+
+```bash Low Priority Tickets
+curl -X GET "https://api.techhelpdesk.com/tickets?priority=low" \
+  -H "Authorization: Bearer <token>"
+```
+
+```javascript JavaScript
+// Get all high priority tickets
+const response = await fetch(
+  'https://api.techhelpdesk.com/tickets?priority=high',
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+
+const highPriorityTickets = await response.json();
+```
+
+</CodeGroup>
+
+<Tip>
+  Combine with status filter to find urgent open tickets: `?priority=high&status=open`
+</Tip>
+
+---
+
+## Filter by Technician
+
+Filter tickets assigned to a specific technician.
+
+### Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Technician Workload" icon="list-check">
+    View all tickets assigned to a specific technician
+  </Card>
+  
+  <Card title="Performance Tracking" icon="chart-line">
+    Monitor how many tickets each technician handles
+  </Card>
+</CardGroup>
+
+### Example Requests
+
+<CodeGroup>
+
+```bash Filter by Technician
+curl -X GET "https://api.techhelpdesk.com/tickets?technicianId=550e8400-e29b-41d4-a716-446655440002" \
+  -H "Authorization: Bearer <token>"
+```
+
+```bash Active Tickets for Technician
+curl -X GET "https://api.techhelpdesk.com/tickets?technicianId=550e8400-e29b-41d4-a716-446655440002&status=in_progress" \
+  -H "Authorization: Bearer <token>"
+```
+
+```javascript JavaScript
+const technicianId = '550e8400-e29b-41d4-a716-446655440002';
+
+// Get all tickets for this technician
+const response = await fetch(
+  `https://api.techhelpdesk.com/tickets?technicianId=${technicianId}`,
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+
+const technicianTickets = await response.json();
+console.log(`Technician has ${technicianTickets.length} total tickets`);
+```
+
+```python Python
+technician_id = '550e8400-e29b-41d4-a716-446655440002'
+
+# Get active tickets for technician
+response = requests.get(
+    'https://api.techhelpdesk.com/tickets',
+    params={
+        'technicianId': technician_id,
+        'status': 'in_progress'
+    },
+    headers={'Authorization': f'Bearer {token}'}
+)
+
+active_tickets = response.json()
+print(f"Technician has {len(active_tickets)} active tickets")
+```
+
+</CodeGroup>
+
+<Note>
+  Tickets with no assigned technician have `"technician": null` and won't match any technician filter.
+</Note>
+
+---
+
+## Filter by Client
+
+Filter tickets created by a specific client.
+
+### Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Client History" icon="clock-rotate-left">
+    View all tickets submitted by a client
+  </Card>
+  
+  <Card title="Client Dashboard" icon="user">
+    Show clients only their own tickets
+  </Card>
+</CardGroup>
+
+### Example Requests
+
+<CodeGroup>
+
+```bash Filter by Client
+curl -X GET "https://api.techhelpdesk.com/tickets?clientId=123e4567-e89b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer <token>"
+```
+
+```bash Client's Open Tickets
+curl -X GET "https://api.techhelpdesk.com/tickets?clientId=123e4567-e89b-41d4-a716-446655440000&status=open" \
+  -H "Authorization: Bearer <token>"
+```
+
+```javascript JavaScript
+const clientId = '123e4567-e89b-41d4-a716-446655440000';
+
+// Get all tickets for this client
+const response = await fetch(
+  `https://api.techhelpdesk.com/tickets?clientId=${clientId}`,
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+
+const clientTickets = await response.json();
+```
+
+</CodeGroup>
+
+<Info>
+  Client users should typically only see their own tickets. Implement client-side filtering using the authenticated user's ID.
+</Info>
+
+---
+
+## Combining Multiple Filters
+
+You can combine any filters to create precise queries.
+
+### Example Combinations
+
+<Tabs>
+  <Tab title="High Priority + Open">
+    Find urgent tickets that need assignment:
+    
+    ```bash
+    curl -X GET "https://api.techhelpdesk.com/tickets?priority=high&status=open" \
+      -H "Authorization: Bearer <token>"
+    ```
+    
+    **Use case:** Identify critical unassigned tickets
+  </Tab>
+  
+  <Tab title="Technician + Status">
+    Check a technician's active workload:
+    
+    ```bash
+    curl -X GET "https://api.techhelpdesk.com/tickets?technicianId=tech-001&status=in_progress" \
+      -H "Authorization: Bearer <token>"
+    ```
+    
+    **Use case:** Monitor technician capacity (max 5 in_progress tickets)
+  </Tab>
+  
+  <Tab title="Client + Priority">
+    View a client's high-priority tickets:
+    
+    ```bash
+    curl -X GET "https://api.techhelpdesk.com/tickets?clientId=client-001&priority=high" \
+      -H "Authorization: Bearer <token>"
+    ```
+    
+    **Use case:** Client dashboard showing urgent issues
+  </Tab>
+  
+  <Tab title="All Filters">
+    Very specific query:
+    
+    ```bash
+    curl -X GET "https://api.techhelpdesk.com/tickets?status=in_progress&priority=high&technicianId=tech-001&clientId=client-001" \
+      -H "Authorization: Bearer <token>"
+    ```
+    
+    **Use case:** Check if a specific technician is working on a client's urgent ticket
+  </Tab>
+</Tabs>
+
+### JavaScript Example: Multiple Filters
+
+```javascript
+const filters = {
+  status: 'open',
+  priority: 'high'
+};
+
+// Build query string
+const queryString = new URLSearchParams(filters).toString();
+
+const response = await fetch(
+  `https://api.techhelpdesk.com/tickets?${queryString}`,
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+
+const tickets = await response.json();
+console.log(`Found ${tickets.length} high-priority open tickets`);
+```
+
+### Python Example: Dynamic Filters
+
+```python
+import requests
+
+def get_filtered_tickets(token, **filters):
+    """Fetch tickets with dynamic filters"""
+    response = requests.get(
+        'https://api.techhelpdesk.com/tickets',
+        params=filters,
+        headers={'Authorization': f'Bearer {token}'}
+    )
+    return response.json()
+
+# Example usage
+tickets = get_filtered_tickets(
+    token=my_token,
+    status='open',
+    priority='high'
+)
+
+print(f"Found {len(tickets)} tickets")
+```
+
+---
+
+## Response Structure
+
+All filter queries return an array of ticket objects with full details.
+
+### Included Relations (from tickets.service.ts:44)
+
+The API automatically includes related entities:
+
+```typescript
+relations: ['client', 'technician', 'category']
+```
+
+### Complete Response Example
+
+```json
+[
+  {
+    "id": "789e1234-e89b-12d3-a456-426614174002",
+    "title": "VPN connection failing",
+    "description": "Cannot connect to company VPN from remote location",
+    "status": "in_progress",
+    "priority": "high",
+    "client": {
+      "id": "123e4567-e89b-41d4-a716-446655440000",
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "role": "client"
+    },
+    "technician": {
+      "id": "550e8400-e29b-41d4-a716-446655440002",
+      "name": "Jane Smith",
+      "email": "jane.smith@techhelpdesk.com",
+      "role": "technician"
+    },
+    "category": {
+      "id": "cat-network-001",
+      "name": "Network Issues",
+      "description": "VPN, connectivity, and network problems"
+    },
+    "createdAt": "2024-03-15T10:30:00.000Z",
+    "updatedAt": "2024-03-15T14:22:00.000Z"
+  }
+]
+```
+
+<ResponseField name="client" type="object">
+  Full client information including name and email
+</ResponseField>
+
+<ResponseField name="technician" type="object | null">
+  Assigned technician details (null if unassigned)
+</ResponseField>
+
+<ResponseField name="category" type="object">
+  Ticket category with description
+</ResponseField>
+
+---
+
+## Sorting
+
+Results are always sorted by creation date in descending order.
+
+### Sort Implementation (from tickets.service.ts:45)
+
+```typescript
+order: { createdAt: 'DESC' }
+```
+
+<Info>
+  This means the newest tickets appear first in the results. Custom sorting is not currently supported.
+</Info>
+
+---
+
+## Performance Considerations
+
+<CardGroup cols={2}>
+  <Card title="Database Indexes" icon="database">
+    Status, priority, and foreign keys (technician_id, client_id) should be indexed for fast filtering
+  </Card>
+  
+  <Card title="Eager Loading" icon="bolt">
+    Related entities (client, technician, category) are loaded in a single query to avoid N+1 problems
+  </Card>
+  
+  <Card title="Filter Early" icon="filter">
+    Apply filters to reduce result set size before loading relations
+  </Card>
+  
+  <Card title="Pagination" icon="list">
+    For large datasets, consider implementing pagination (not currently supported)
+  </Card>
+</CardGroup>
+
+---
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Dashboard: Unassigned Tickets">
+    ```bash
+    GET /tickets?status=open
+    ```
+    
+    Shows all tickets waiting for technician assignment. Useful for admin dashboards.
+  </Accordion>
+  
+  <Accordion title="Technician Workload Check">
+    ```bash
+    GET /tickets?technicianId={id}&status=in_progress
+    ```
+    
+    Verify if a technician has capacity for new tickets (max 5 active). Used before assignment.
+  </Accordion>
+  
+  <Accordion title="Client Ticket History">
+    ```bash
+    GET /tickets?clientId={id}
+    ```
+    
+    Show all tickets submitted by a client across all statuses.
+  </Accordion>
+  
+  <Accordion title="Urgent Queue">
+    ```bash
+    GET /tickets?priority=high&status=open
+    ```
+    
+    Critical tickets that need immediate assignment. Priority queue for admins.
+  </Accordion>
+  
+  <Accordion title="Recently Resolved">
+    ```bash
+    GET /tickets?status=resolved
+    ```
+    
+    Tickets awaiting client confirmation. Sorted newest first.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Error Handling
+
+<Accordion title="Invalid Status Value">
+  Using an invalid status value returns an empty array, not an error:
+  
+  ```bash
+  GET /tickets?status=invalid
+  # Returns: []
+  ```
+  
+  <Note>
+    The API doesn't validate enum values in query parameters. Invalid values simply don't match any records.
+  </Note>
+</Accordion>
+
+<Accordion title="Invalid UUID Format">
+  Malformed UUIDs for `technicianId` or `clientId` return empty results:
+  
+  ```bash
+  GET /tickets?technicianId=not-a-uuid
+  # Returns: []
+  ```
+</Accordion>
+
+<Accordion title="Non-existent ID">
+  Valid UUID format but non-existent ID returns empty array:
+  
+  ```bash
+  GET /tickets?clientId=00000000-0000-0000-0000-000000000000
+  # Returns: []
+  ```
+</Accordion>
+
+---
+
+## Implementation Details
+
+The filter implementation uses TypeORM's `FindOptionsWhere` to build dynamic queries.
+
+### Query Building (from tickets.service.ts:33-40)
+
+```typescript
+const { status, priority, technicianId, clientId } = params;
+const where: FindOptionsWhere<Ticket> = {};
+
+if (status) where.status = status;
+if (priority) where.priority = priority as any;
+if (technicianId) where.technician = { id: technicianId };
+if (clientId) where.client = { id: clientId };
+```
+
+<Info>
+  Only non-null/undefined filter parameters are added to the WHERE clause. This allows flexible combination of filters.
+</Info>
+
+### Generated SQL Example
+
+For a query with status and priority filters:
+
+```sql
+SELECT * FROM tickets
+LEFT JOIN clients ON tickets.client_id = clients.id
+LEFT JOIN technicians ON tickets.technician_id = technicians.id  
+LEFT JOIN categories ON tickets.category_id = categories.id
+WHERE tickets.status = 'open' 
+  AND tickets.priority = 'high'
+ORDER BY tickets.createdAt DESC;
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Ticket Workflow" icon="diagram-project" href="/guides/ticket-workflow">
+    Learn about ticket statuses and lifecycle transitions
+  </Card>
+  
+  <Card title="Role-Based Access" icon="user-shield" href="/guides/role-based-access">
+    Understand which roles can filter and view different tickets
+  </Card>
+</CardGroup>

@@ -1,0 +1,395 @@
+---
+title: 'Database Migrations'
+description: 'Manage database schema changes with TypeORM migrations'
+---
+
+## Overview
+
+TypeORM migrations provide a structured way to manage database schema changes. The TechHelpDesk API uses TypeORM's migration system to version and apply database changes safely.
+
+<Note>
+  Migrations ensure that database schema changes are tracked, repeatable, and can be rolled back if needed.
+</Note>
+
+## Migration Commands
+
+All migration commands are defined in `package.json` and use the `typeorm-ts-node-commonjs` CLI:
+
+```json package.json
+{
+  "scripts": {
+    "migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate src/migrations/$npm_config_name",
+    "migration:create": "typeorm-ts-node-commonjs migration:create src/migrations/$npm_config_name",
+    "migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
+    "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
+    "migration:show": "typeorm-ts-node-commonjs -d src/data-source.ts migration:show",
+    "schema:drop": "typeorm-ts-node-commonjs -d src/data-source.ts schema:drop"
+  }
+}
+```
+
+## Creating Migrations
+
+### Auto-Generate from Entities
+
+TypeORM can automatically generate migrations by comparing your entities with the current database schema:
+
+```bash
+npm run migration:generate --name=InitialSchema
+```
+
+This command:
+1. Compares entity definitions with the database schema
+2. Generates a migration file with the necessary changes
+3. Saves it to `src/migrations/` with a timestamp prefix
+
+<CodeGroup>
+```bash Example: Generate Initial Schema
+npm run migration:generate --name=InitialSchema
+```
+
+```bash Example: Add New Field
+npm run migration:generate --name=AddPhoneToClient
+```
+
+```bash Example: Create Indexes
+npm run migration:generate --name=AddTicketIndexes
+```
+</CodeGroup>
+
+### Create Empty Migration
+
+For custom database operations, create an empty migration template:
+
+```bash
+npm run migration:create --name=CustomOperation
+```
+
+This creates a blank migration file that you can edit manually:
+
+```typescript
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class CustomOperation1234567890 implements MigrationInterface {
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        // Add your custom SQL here
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        // Add rollback SQL here
+    }
+}
+```
+
+## Running Migrations
+
+### Apply All Pending Migrations
+
+```bash
+npm run migration:run
+```
+
+This command:
+- Executes all pending migrations in chronological order
+- Records each migration in the `migrations` table
+- Skips already executed migrations
+
+<Steps>
+  <Step title="Build the Project">
+    Migrations run from the compiled JavaScript files:
+    ```bash
+    npm run build
+    ```
+  </Step>
+  
+  <Step title="Run Migrations">
+    Execute all pending migrations:
+    ```bash
+    npm run migration:run
+    ```
+  </Step>
+  
+  <Step title="Verify Success">
+    Check the console output for successful migration execution.
+  </Step>
+</Steps>
+
+### Show Migration Status
+
+View which migrations have been executed:
+
+```bash
+npm run migration:show
+```
+
+Output shows:
+- ✅ Executed migrations with timestamps
+- ⬜ Pending migrations waiting to run
+
+## Reverting Migrations
+
+### Revert Last Migration
+
+```bash
+npm run migration:revert
+```
+
+This command:
+- Executes the `down()` method of the most recent migration
+- Removes the migration record from the database
+- Can be run multiple times to revert multiple migrations
+
+<Warning>
+  Always test migration rollbacks in a development environment before using them in production. Data loss may occur if the `down()` method is not properly implemented.
+</Warning>
+
+### Revert Multiple Migrations
+
+Run the revert command multiple times:
+
+```bash
+npm run migration:revert  # Reverts last migration
+npm run migration:revert  # Reverts second-to-last migration
+npm run migration:revert  # Reverts third-to-last migration
+```
+
+## Database Seeding
+
+### Seed Script
+
+The project includes a seed script to populate the database with initial data:
+
+```bash
+npm run seed
+```
+
+The seed script (`src/scripts/seed.ts`) creates:
+
+<Tabs>
+  <Tab title="Admin User">
+    ```typescript
+    {
+      email: 'admin@admin.com',
+      password: 'admin123',
+      name: 'Administrador',
+      role: UserRole.ADMIN
+    }
+    ```
+    Also creates a corresponding Technician profile with specialty "Soporte General".
+  </Tab>
+  
+  <Tab title="Test Client">
+    ```typescript
+    {
+      email: 'user@test.com',
+      password: 'user123',
+      name: 'Usuario de Prueba',
+      role: UserRole.CLIENT
+    }
+    ```
+    Creates a Client profile for "Empresa de Prueba".
+  </Tab>
+  
+  <Tab title="Categories">
+    - Soporte Técnico
+    - Facturación
+    - Acceso
+  </Tab>
+  
+  <Tab title="Sample Tickets">
+    - "No puedo iniciar sesión" (HIGH priority)
+    - "Error en factura" (MEDIUM priority)
+    - "Mi computadora no enciende" (HIGH, IN_PROGRESS)
+  </Tab>
+</Tabs>
+
+### Seed Script Features
+
+The seed script includes:
+
+```typescript src/scripts/seed.ts (excerpt)
+// Creates admin user and technician profile
+const adminUserData: CreateUserDto = {
+  email: 'admin@admin.com',
+  password: 'admin123',
+  name: 'Administrador',
+  role: UserRole.ADMIN
+};
+
+// Creates client user and client profile
+const clientUserData: CreateUserDto = {
+  email: 'user@test.com',
+  password: 'user123',
+  name: 'Usuario de Prueba',
+  role: UserRole.CLIENT
+};
+
+// Creates sample categories
+const categories = [
+  { name: 'Soporte Técnico', description: 'Problemas con equipos o software' },
+  { name: 'Facturación', description: 'Consultas sobre facturas y pagos' },
+  { name: 'Acceso', description: 'Problemas con el acceso al sistema' },
+];
+```
+
+<Note>
+  The seed script is idempotent - it checks for existing data before creating new records.
+</Note>
+
+## Restoring from SQL Dump
+
+The project includes a database dump file for quick setup:
+
+### Using psql
+
+```bash
+psql -h localhost -p 5432 -U admin -d helpdesk_db < database/dump.sql
+```
+
+### Using Docker
+
+```bash
+docker-compose exec -T db psql -U admin -d helpdesk_db < database/dump.sql
+```
+
+### Restore Process
+
+<Steps>
+  <Step title="Drop Existing Schema (Optional)">
+    If you want to start fresh:
+    ```bash
+    npm run schema:drop
+    ```
+  </Step>
+  
+  <Step title="Restore from Dump">
+    ```bash
+    psql -h localhost -U admin -d helpdesk_db < database/dump.sql
+    ```
+  </Step>
+  
+  <Step title="Verify Restoration">
+    Check that tables and data were restored:
+    ```bash
+    psql -h localhost -U admin -d helpdesk_db -c "\dt"
+    ```
+  </Step>
+</Steps>
+
+## Migration Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Always Test Migrations" icon="flask">
+    Test migrations in development before applying to production. Verify both `up()` and `down()` methods work correctly.
+  </Card>
+  
+  <Card title="Use Descriptive Names" icon="tag">
+    Name migrations clearly: `AddEmailToUsers`, `CreateIndexOnTickets`, `RemoveOldColumn`.
+  </Card>
+  
+  <Card title="Version Control" icon="code-branch">
+    Commit migration files to version control. Never modify migrations that have been applied to production.
+  </Card>
+  
+  <Card title="Backup Before Changes" icon="database">
+    Always backup production databases before running migrations.
+  </Card>
+</CardGroup>
+
+## Common Migration Scenarios
+
+### Adding a New Column
+
+```typescript
+public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+        ALTER TABLE "clients" 
+        ADD COLUMN "phone" character varying
+    `);
+}
+
+public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+        ALTER TABLE "clients" 
+        DROP COLUMN "phone"
+    `);
+}
+```
+
+### Creating an Index
+
+```typescript
+public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+        CREATE INDEX "IDX_TICKET_STATUS" 
+        ON "tickets" ("status")
+    `);
+}
+
+public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+        DROP INDEX "IDX_TICKET_STATUS"
+    `);
+}
+```
+
+### Adding a Foreign Key
+
+```typescript
+public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+        ALTER TABLE "tickets" 
+        ADD CONSTRAINT "FK_TICKET_CATEGORY" 
+        FOREIGN KEY ("category_id") 
+        REFERENCES "categories"("id") 
+        ON DELETE RESTRICT
+    `);
+}
+
+public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+        ALTER TABLE "tickets" 
+        DROP CONSTRAINT "FK_TICKET_CATEGORY"
+    `);
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Migration Already Exists Error">
+    **Problem**: `Migration file already exists`
+    
+    **Solution**: Choose a different migration name or delete the existing file if it's a duplicate.
+  </Accordion>
+  
+  <Accordion title="No Changes in Database Error">
+    **Problem**: `No changes in database schema were found`
+    
+    **Solution**: This means your entities match the database schema. If you expect changes, verify:
+    - Entity decorators are correct
+    - You've saved all entity files
+    - The build is up to date: `npm run build`
+  </Accordion>
+  
+  <Accordion title="Migration Failed to Execute">
+    **Problem**: Migration throws SQL errors during execution
+    
+    **Solution**:
+    - Check the error message for SQL syntax issues
+    - Verify table/column names match your entities
+    - Ensure dependencies (referenced tables) exist
+    - Run `npm run migration:revert` to rollback
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Entity Definitions" icon="table" href="/database/entities">
+    Learn about the database entities and their relationships
+  </Card>
+  <Card title="Database Setup" icon="gear" href="/database/setup">
+    Configure your PostgreSQL connection
+  </Card>
+</CardGroup>

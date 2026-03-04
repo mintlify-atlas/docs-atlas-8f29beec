@@ -1,0 +1,668 @@
+---
+title: Installation
+description: Detailed installation guide for TechHelpDesk API with database setup and configuration
+---
+
+# Installation Guide
+
+Comprehensive guide to installing and configuring TechHelpDesk API for development and production environments.
+
+## System Requirements
+
+### Minimum Requirements
+
+- **Node.js**: Version 16.x or higher (18.x or 20.x recommended)
+- **PostgreSQL**: Version 12.x or higher (15.x recommended)
+- **RAM**: 2GB minimum, 4GB recommended
+- **Disk Space**: 500MB for application and dependencies
+- **Operating System**: Linux, macOS, or Windows with WSL2
+
+### Package Manager
+
+- **npm**: Version 7.x or higher (included with Node.js)
+- **yarn**: Version 1.22.x or higher (optional alternative)
+
+<Tip>
+  Check your installed versions:
+  ```bash
+  node --version
+  npm --version
+  psql --version
+  ```
+</Tip>
+
+## Database Setup
+
+### Option 1: Docker Compose (Recommended)
+
+The project includes a `docker-compose.yml` file for easy PostgreSQL setup:
+
+```yaml docker-compose.yml
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: helpdesk_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+
+<Steps>
+  <Step title="Install Docker">
+    If you don't have Docker installed:
+    - **Linux**: Follow [Docker Engine installation guide](https://docs.docker.com/engine/install/)
+    - **macOS/Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
+  </Step>
+
+  <Step title="Start PostgreSQL Container">
+    ```bash
+    docker-compose up -d
+    ```
+    
+    Verify the container is running:
+    ```bash
+    docker-compose ps
+    ```
+  </Step>
+
+  <Step title="Test Database Connection">
+    ```bash
+    docker-compose exec db psql -U admin -d helpdesk_db
+    ```
+    
+    You should see the PostgreSQL prompt:
+    ```
+    helpdesk_db=#
+    ```
+    
+    Type `\q` to exit.
+  </Step>
+</Steps>
+
+### Option 2: Local PostgreSQL Installation
+
+If you prefer to install PostgreSQL directly on your system:
+
+<CodeGroup>
+  ```bash Ubuntu/Debian
+  # Install PostgreSQL
+  sudo apt update
+  sudo apt install postgresql postgresql-contrib
+  
+  # Start PostgreSQL service
+  sudo systemctl start postgresql
+  sudo systemctl enable postgresql
+  ```
+
+  ```bash macOS (Homebrew)
+  # Install PostgreSQL
+  brew install postgresql@15
+  
+  # Start PostgreSQL service
+  brew services start postgresql@15
+  ```
+
+  ```bash Windows
+  # Download installer from:
+  # https://www.postgresql.org/download/windows/
+  # 
+  # Follow the installation wizard
+  # Default port: 5432
+  ```
+</CodeGroup>
+
+<Steps>
+  <Step title="Create Database User">
+    ```bash
+    sudo -u postgres psql
+    ```
+    
+    In the PostgreSQL prompt:
+    ```sql
+    CREATE USER admin WITH PASSWORD 'root';
+    CREATE DATABASE helpdesk_db OWNER admin;
+    GRANT ALL PRIVILEGES ON DATABASE helpdesk_db TO admin;
+    ```
+  </Step>
+
+  <Step title="Configure PostgreSQL Authentication">
+    Edit `pg_hba.conf` to allow password authentication:
+    
+    ```bash
+    # Find pg_hba.conf location
+    psql -U postgres -c 'SHOW hba_file;'
+    ```
+    
+    Add or modify this line:
+    ```
+    local   all   all   md5
+    host    all   all   127.0.0.1/32   md5
+    ```
+    
+    Restart PostgreSQL:
+    ```bash
+    sudo systemctl restart postgresql
+    ```
+  </Step>
+
+  <Step title="Test Connection">
+    ```bash
+    psql -U admin -d helpdesk_db -h localhost
+    ```
+  </Step>
+</Steps>
+
+## Project Installation
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/SantiagoPortillo1/Prueba-de-Desempe-o-M-dulo-Node.js-con-NestJS-y-TypeORM.git
+    cd Prueba-de-Desempe-o-M-dulo-Node.js-con-NestJS-y-TypeORM
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    <CodeGroup>
+      ```bash npm
+      npm install
+      ```
+
+      ```bash yarn
+      yarn install
+      ```
+    </CodeGroup>
+    
+    This installs all production and development dependencies from `package.json`, including:
+    - **@nestjs/common**, **@nestjs/core**: NestJS framework
+    - **@nestjs/typeorm**, **typeorm**: ORM and database integration
+    - **@nestjs/jwt**, **@nestjs/passport**: Authentication
+    - **pg**: PostgreSQL driver
+    - **bcrypt**: Password hashing
+    - **class-validator**, **class-transformer**: Request validation
+    - **swagger-ui-express**: API documentation
+  </Step>
+</Steps>
+
+## Environment Configuration
+
+### Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```bash .env
+# Database Configuration
+# From src/data-source.ts and src/app.module.ts
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=admin
+DB_PASSWORD=root
+DB_DATABASE=helpdesk_db
+
+# JWT Configuration
+# Used by @nestjs/jwt in auth module
+JWT_SECRET=your_super_secret_jwt_key_change_this_in_production_min_32_chars
+JWT_EXPIRES_IN=1d
+
+# Server Configuration
+# From src/main.ts:33
+PORT=3000
+NODE_ENV=development
+```
+
+<Warning>
+  **Security Best Practices:**
+  - Never commit `.env` to version control
+  - Use strong, random strings for `JWT_SECRET` (minimum 32 characters)
+  - Change default database credentials in production
+  - Use environment-specific `.env` files (.env.development, .env.production)
+</Warning>
+
+### TypeORM Configuration
+
+The database connection is configured in two files:
+
+**1. Runtime Configuration** (`src/app.module.ts:15-24`)
+
+```typescript
+TypeOrmModule.forRoot({
+  type: 'postgres',
+  host: 'localhost',
+  port: 5432, 
+  username: 'admin',
+  password: 'root',
+  database: 'helpdesk_db',
+  autoLoadEntities: true,
+  synchronize: true, // Only for development
+})
+```
+
+**2. Migration Configuration** (`src/data-source.ts:9-20`)
+
+```typescript
+export const AppDataSource = new DataSource({
+  type: 'postgres', 
+  host: 'localhost',
+  port: 5432,
+  username: 'admin',
+  password: 'root',
+  database: 'helpdesk_db',
+  entities: ['dist/**/*.entity{.ts,.js}'],
+  migrations: ['dist/migrations/*{.ts,.js}'],
+  synchronize: false, // Should be false in production
+  logging: true,
+});
+```
+
+<Note>
+  The hardcoded values should be replaced with environment variables for production. You can update these files to use `process.env.DB_HOST`, `process.env.DB_PORT`, etc.
+</Note>
+
+## Database Migrations
+
+### Available Migration Commands
+
+From `package.json:18-23`, the following migration scripts are available:
+
+```json
+"migration:generate": "typeorm-ts-node-commonjs -d src/data-source.ts migration:generate src/migrations/$npm_config_name",
+"migration:create": "typeorm-ts-node-commonjs migration:create src/migrations/$npm_config_name",
+"migration:run": "typeorm-ts-node-commonjs -d src/data-source.ts migration:run",
+"migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
+"migration:show": "typeorm-ts-node-commonjs -d src/data-source.ts migration:show",
+"schema:drop": "typeorm-ts-node-commonjs -d src/data-source.ts schema:drop"
+```
+
+### Running Migrations
+
+<Steps>
+  <Step title="Build the Project First">
+    Migrations require compiled TypeScript:
+    ```bash
+    npm run build
+    ```
+  </Step>
+
+  <Step title="Check Migration Status">
+    ```bash
+    npm run migration:show
+    ```
+    
+    This shows which migrations have been executed and which are pending.
+  </Step>
+
+  <Step title="Run Pending Migrations">
+    ```bash
+    npm run migration:run
+    ```
+    
+    This creates all database tables and relationships:
+    - **users** table with role-based access
+    - **clients** and **technicians** tables
+    - **tickets** table with status and priority
+    - **categories** table for ticket classification
+  </Step>
+
+  <Step title="Verify Database Schema">
+    ```bash
+    psql -U admin -d helpdesk_db -c "\dt"
+    ```
+    
+    You should see all tables listed.
+  </Step>
+</Steps>
+
+### Creating New Migrations
+
+<CodeGroup>
+  ```bash Generate from Entity Changes
+  # Automatically generate migration from entity changes
+  npm run migration:generate --name=AddNewFeature
+  ```
+
+  ```bash Create Empty Migration
+  # Create a blank migration file
+  npm run migration:create --name=CustomMigration
+  ```
+</CodeGroup>
+
+### Reverting Migrations
+
+```bash
+# Revert the last executed migration
+npm run migration:revert
+```
+
+<Warning>
+  Reverting migrations can result in data loss. Always backup your database before reverting in production.
+</Warning>
+
+## Development vs Production Setup
+
+### Development Environment
+
+```bash
+# Start with hot-reload (from package.json:12)
+npm run start:dev
+```
+
+**Development Features:**
+- Auto-reload on file changes
+- Detailed error messages
+- Swagger UI enabled at `/docs`
+- SQL query logging enabled
+- `synchronize: true` (auto-creates tables)
+
+### Production Environment
+
+<Steps>
+  <Step title="Update Configuration">
+    Create `.env.production`:
+    ```bash
+    NODE_ENV=production
+    DB_HOST=your-production-db-host
+    DB_PORT=5432
+    DB_USERNAME=production_user
+    DB_PASSWORD=strong_secure_password
+    DB_DATABASE=helpdesk_production
+    JWT_SECRET=production_jwt_secret_min_64_chars
+    JWT_EXPIRES_IN=8h
+    PORT=3000
+    ```
+    
+    <Warning>
+      Set `synchronize: false` in `src/app.module.ts` for production to prevent automatic schema changes.
+    </Warning>
+  </Step>
+
+  <Step title="Build the Application">
+    ```bash
+    npm run build
+    ```
+    
+    This creates optimized production code in the `dist/` directory.
+  </Step>
+
+  <Step title="Run Migrations">
+    ```bash
+    npm run migration:run
+    ```
+  </Step>
+
+  <Step title="Start Production Server">
+    ```bash
+    # From package.json:14
+    npm run start:prod
+    ```
+  </Step>
+</Steps>
+
+### Using PM2 for Production
+
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start application with PM2
+pm2 start dist/main.js --name techhelpdesk
+
+# Save PM2 configuration
+pm2 save
+
+# Setup PM2 to start on system boot
+pm2 startup
+```
+
+## Docker Deployment
+
+You can containerize the entire application:
+
+### Using Docker Compose for Full Stack
+
+Create an extended `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: helpdesk_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - helpdesk-network
+
+  app:
+    build: .
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: admin
+      DB_PASSWORD: root
+      DB_DATABASE: helpdesk_db
+      JWT_SECRET: your_jwt_secret
+      NODE_ENV: production
+    depends_on:
+      - db
+    networks:
+      - helpdesk-network
+
+volumes:
+  pgdata:
+
+networks:
+  helpdesk-network:
+```
+
+Create a `Dockerfile`:
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+RUN npm run build
+
+EXPOSE 3000
+
+CMD ["node", "dist/main"]
+```
+
+Then start everything:
+
+```bash
+docker-compose up -d
+```
+
+## Troubleshooting Common Issues
+
+<AccordionGroup>
+  <Accordion title="Connection refused to PostgreSQL">
+    **Symptoms:** `ECONNREFUSED 127.0.0.1:5432` or `Connection refused`
+    
+    **Solutions:**
+    1. Check if PostgreSQL is running:
+       ```bash
+       # For Docker
+       docker-compose ps
+       
+       # For local installation
+       sudo systemctl status postgresql
+       ```
+    
+    2. Verify database credentials in `.env`
+    
+    3. Check if port 5432 is accessible:
+       ```bash
+       nc -zv localhost 5432
+       ```
+    
+    4. Check PostgreSQL logs:
+       ```bash
+       # Docker
+       docker-compose logs db
+       
+       # Local
+       sudo tail -f /var/log/postgresql/postgresql-15-main.log
+       ```
+  </Accordion>
+
+  <Accordion title="Migration errors">
+    **Symptoms:** `QueryFailedError` or `relation does not exist`
+    
+    **Solutions:**
+    1. Check migration status:
+       ```bash
+       npm run migration:show
+       ```
+    
+    2. Drop and recreate schema (development only):
+       ```bash
+       npm run schema:drop
+       npm run migration:run
+       ```
+    
+    3. Verify database exists:
+       ```bash
+       psql -U admin -d postgres -c "\l" | grep helpdesk
+       ```
+    
+    4. Check for migration lock:
+       ```sql
+       SELECT * FROM pg_locks WHERE NOT granted;
+       ```
+  </Accordion>
+
+  <Accordion title="Port 3000 already in use">
+    **Symptoms:** `Error: listen EADDRINUSE: address already in use :::3000`
+    
+    **Solutions:**
+    1. Find and kill process:
+       ```bash
+       # Linux/macOS
+       lsof -ti:3000 | xargs kill -9
+       
+       # Windows
+       netstat -ano | findstr :3000
+       taskkill /PID <PID> /F
+       ```
+    
+    2. Use different port in `.env`:
+       ```bash
+       PORT=3001
+       ```
+  </Accordion>
+
+  <Accordion title="JWT token errors">
+    **Symptoms:** `401 Unauthorized` or `Invalid token`
+    
+    **Solutions:**
+    1. Verify JWT_SECRET is set in `.env`
+    
+    2. Check token format in Authorization header:
+       ```
+       Authorization: Bearer <token>
+       ```
+    
+    3. Ensure token hasn't expired (check JWT_EXPIRES_IN)
+    
+    4. Verify password matches in database:
+       ```sql
+       SELECT email, role FROM users;
+       ```
+  </Accordion>
+
+  <Accordion title="Module not found errors">
+    **Symptoms:** `Cannot find module` or `Module not found`
+    
+    **Solutions:**
+    1. Clear cache and reinstall:
+       ```bash
+       rm -rf node_modules package-lock.json
+       npm install
+       ```
+    
+    2. Rebuild the project:
+       ```bash
+       npm run build
+       ```
+    
+    3. Check for TypeScript errors:
+       ```bash
+       npx tsc --noEmit
+       ```
+  </Accordion>
+
+  <Accordion title="Permission denied errors">
+    **Symptoms:** `EACCES: permission denied` or `Access denied`
+    
+    **Solutions:**
+    1. Check database user permissions:
+       ```sql
+       GRANT ALL PRIVILEGES ON DATABASE helpdesk_db TO admin;
+       GRANT ALL ON SCHEMA public TO admin;
+       ```
+    
+    2. Fix file permissions:
+       ```bash
+       chmod -R 755 .
+       chown -R $USER:$USER .
+       ```
+    
+    3. Run without sudo (avoid running npm with sudo)
+  </Accordion>
+</AccordionGroup>
+
+## Verification Checklist
+
+After installation, verify everything is working:
+
+- [ ] Database connection successful
+- [ ] All migrations executed
+- [ ] Server starts without errors
+- [ ] Swagger docs accessible at http://localhost:3000/docs
+- [ ] Can login and receive JWT token
+- [ ] Can create a new ticket with authentication
+- [ ] Environment variables loaded correctly
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api/tickets/overview">
+    Explore all available endpoints and features
+  </Card>
+  
+  <Card title="Authentication Guide" icon="shield" href="/guides/authentication">
+    Learn about JWT tokens and role-based access control
+  </Card>
+  
+  <Card title="Database Schema" icon="database" href="/database/entities">
+    Understand the entity relationships and data model
+  </Card>
+  
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Get started quickly with step-by-step instructions
+  </Card>
+</CardGroup>

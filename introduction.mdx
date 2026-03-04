@@ -1,0 +1,168 @@
+---
+title: Introduction
+description: Overview of the TechHelpDesk API - A comprehensive technical support ticket management system
+---
+
+# TechHelpDesk API
+
+TechHelpDesk is a robust technical support ticket management system built with NestJS, TypeORM, and PostgreSQL. It provides a complete solution for managing support tickets, users, and technician assignments with enterprise-grade features.
+
+## What Problem Does It Solve?
+
+TechHelpDesk streamlines the technical support process by providing:
+
+- **Centralized Ticket Management**: Track all support requests in one place with status tracking and priority levels
+- **Role-Based Access Control**: Separate permissions for administrators, technicians, and clients
+- **Efficient Assignment System**: Assign tickets to technicians and monitor their progress
+- **Complete Audit Trail**: Automatic timestamps for all ticket creation and updates
+- **API-First Design**: RESTful API with comprehensive Swagger documentation
+
+## Key Features
+
+### JWT Authentication
+Secure authentication system using JSON Web Tokens with bearer token authorization. Protected endpoints require valid JWT tokens obtained through the login endpoint.
+
+```typescript
+// From src/modules/auth/auth.controller.ts:11
+POST /auth/login
+```
+
+### Role-Based Access Control (RBAC)
+Three distinct user roles with different permission levels:
+
+- **Admin**: Full system access, user management, and ticket deletion
+- **Technician**: Ticket assignment, status updates, and resolution
+- **Client**: Ticket creation and viewing own tickets
+
+```typescript
+// From src/common/enums/role.enum.ts:1
+export enum Role {
+  ADMIN = 'admin',
+  TECHNICIAN = 'technician',
+  CLIENT = 'client'
+}
+```
+
+### Ticket Lifecycle Management
+Complete ticket workflow with four status stages:
+
+- **Open**: Initial state when ticket is created
+- **In Progress**: Technician is actively working on the ticket
+- **Resolved**: Issue has been fixed, awaiting client confirmation
+- **Closed**: Ticket is completed and archived
+
+```typescript
+// From src/modules/tickets/entities/ticket.entity.ts:13
+export enum TicketStatus {
+  OPEN = 'open',
+  IN_PROGRESS = 'in_progress',
+  RESOLVED = 'resolved',
+  CLOSED = 'closed',
+}
+```
+
+### Priority Levels
+Three-tier priority system for ticket classification:
+
+```typescript
+// From src/modules/tickets/entities/ticket.entity.ts:20
+export enum TicketPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+```
+
+### TypeORM + PostgreSQL
+Powerful ORM integration with PostgreSQL for:
+
+- Entity relationships and foreign keys
+- Database migrations with version control
+- Query optimization and eager/lazy loading
+- UUID primary keys for enhanced security
+
+## Architecture Overview
+
+TechHelpDesk follows a modular architecture with clearly separated concerns:
+
+### Core Modules
+
+**Authentication Module** (`src/modules/auth`)
+- JWT strategy implementation
+- Login endpoint and token generation
+- Password validation with bcrypt
+- Profile retrieval for authenticated users
+
+**Users Module** (`src/modules/users`)
+- User entity with role-based profiles
+- Relationship management between users, clients, and technicians
+- Password hashing and email validation
+
+**Tickets Module** (`src/modules/tickets`)
+- CRUD operations for tickets
+- Status and priority management
+- Technician assignment logic
+- Filtering by status, priority, technician, or client
+
+**Categories Module** (`src/modules/categories`)
+- Ticket categorization system
+- Category-based filtering and reporting
+
+**Clients Module** (`src/modules/clients`)
+- Client profile management
+- Client-specific ticket history
+
+**Technicians Module** (`src/modules/technicians`)
+- Technician profile management
+- Assignment tracking and workload monitoring
+
+### Common Module
+
+**Guards** (`src/common/guards`)
+- Role-based authorization guard
+- JWT authentication guard
+
+**Decorators** (`src/common/decorators`)
+- `@CurrentUser()` - Extract current user from request
+- `@Roles()` - Define required roles for endpoints
+
+**Interceptors** (`src/common/interceptors`)
+- Response transformation for consistent API format
+
+**Filters** (`src/common/filters`)
+- Global exception handling
+- Standardized error responses
+
+## Technology Stack
+
+- **Framework**: NestJS 11.x
+- **ORM**: TypeORM 0.3.x
+- **Database**: PostgreSQL 15
+- **Authentication**: Passport JWT
+- **Validation**: class-validator + class-transformer
+- **Documentation**: Swagger/OpenAPI
+- **Password Hashing**: bcrypt
+
+## API Documentation
+
+Once the server is running, interactive API documentation is available at:
+
+```
+http://localhost:3000/docs
+```
+
+The Swagger UI provides:
+- Complete endpoint documentation
+- Request/response schemas
+- Try-it-out functionality
+- Bearer token authentication
+
+## Next Steps
+
+<Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+  Get TechHelpDesk running in minutes with step-by-step instructions
+</Card>
+
+<Card title="Installation" icon="download" href="/installation">
+  Detailed installation guide with database setup and configuration
+</Card>

@@ -1,0 +1,450 @@
+---
+title: 'Authentication'
+description: 'Learn how JWT authentication works in the TechHelpDesk API'
+icon: 'shield-halved'
+---
+
+## Overview
+
+The TechHelpDesk API uses **JWT (JSON Web Token)** authentication to secure endpoints. This guide covers the complete authentication flow, from login to making authenticated requests.
+
+## Authentication Flow
+
+<Steps>
+  <Step title="User Login">
+    The client sends credentials (email and password) to the `/auth/login` endpoint.
+  </Step>
+  <Step title="Token Generation">
+    The server validates credentials against the database and returns a JWT token if valid.
+  </Step>
+  <Step title="Token Usage">
+    The client includes the token in the `Authorization` header for subsequent requests.
+  </Step>
+  <Step title="Token Validation">
+    The server validates the token and extracts user information for protected routes.
+  </Step>
+</Steps>
+
+---
+
+## Login Endpoint
+
+### POST /auth/login
+
+Authenticate a user and receive a JWT access token.
+
+<Note>
+  This is a **public endpoint** - no authentication required to call it.
+</Note>
+
+#### Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address (must be valid email format)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (minimum 6 characters)
+</ParamField>
+
+#### Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.techhelpdesk.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john.doe@example.com",
+    "password": "securePass123"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.techhelpdesk.com/auth/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    email: 'john.doe@example.com',
+    password: 'securePass123'
+  })
+});
+
+const data = await response.json();
+console.log(data.access_token);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://api.techhelpdesk.com/auth/login',
+    json={
+        'email': 'john.doe@example.com',
+        'password': 'securePass123'
+    }
+)
+
+token = response.json()['access_token']
+print(token)
+```
+
+</CodeGroup>
+
+#### Success Response (200 OK)
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImpvaG4uZG9lQGV4YW1wbGUuY29tIiwic3ViIjoiMTIzZTQ1NjctZTg5Yi0xMmQzLWE0NTYtNDI2NjE0MTc0MDAwIiwicm9sZSI6InRlY2huaWNpYW4iLCJpYXQiOjE2MjM5NDU2MzIsImV4cCI6MTYyMzk0OTIzMn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+}
+```
+
+#### Error Response (401 Unauthorized)
+
+```json
+{
+  "statusCode": 401,
+  "message": "Credenciales incorrectas",
+  "error": "Unauthorized"
+}
+```
+
+<Warning>
+  Failed login attempts do not reveal whether the email exists or if the password is incorrect. This prevents user enumeration attacks.
+</Warning>
+
+---
+
+## Token Format and Structure
+
+### JWT Payload
+
+The JWT token contains the following claims:
+
+<ResponseField name="email" type="string">
+  The user's email address
+</ResponseField>
+
+<ResponseField name="sub" type="string">
+  The user's unique ID (UUID format)
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  The user's role: `admin`, `technician`, or `client`
+</ResponseField>
+
+<ResponseField name="iat" type="number">
+  Issued at timestamp (Unix timestamp)
+</ResponseField>
+
+<ResponseField name="exp" type="number">
+  Expiration timestamp (Unix timestamp)
+</ResponseField>
+
+### Decoded Token Example
+
+```json
+{
+  "email": "john.doe@example.com",
+  "sub": "123e4567-e89b-12d3-a456-426614174000",
+  "role": "technician",
+  "iat": 1623945632,
+  "exp": 1623949232
+}
+```
+
+---
+
+## Using Bearer Tokens
+
+Once you have the access token, include it in the `Authorization` header using the **Bearer scheme** for all protected endpoints.
+
+### Header Format
+
+```
+Authorization: Bearer <access_token>
+```
+
+### Example Authenticated Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://api.techhelpdesk.com/tickets \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+```javascript JavaScript
+const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+
+const response = await fetch('https://api.techhelpdesk.com/tickets', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+const tickets = await response.json();
+```
+
+```python Python
+import requests
+
+token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+
+response = requests.get(
+    'https://api.techhelpdesk.com/tickets',
+    headers={'Authorization': f'Bearer {token}'}
+)
+
+tickets = response.json()
+```
+
+</CodeGroup>
+
+<Warning>
+  Requests to protected endpoints without a valid token will return **401 Unauthorized**.
+</Warning>
+
+---
+
+## Profile Endpoint
+
+### GET /auth/profile
+
+Retrieve the authenticated user's profile information.
+
+<Note>
+  This is a **protected endpoint** - requires valid JWT token.
+</Note>
+
+#### Example Request
+
+```bash
+curl -X GET https://api.techhelpdesk.com/auth/profile \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+#### Success Response (200 OK)
+
+```json
+{
+  "userId": "123e4567-e89b-12d3-a456-426614174000",
+  "email": "john.doe@example.com",
+  "role": "technician"
+}
+```
+
+<Info>
+  The profile data comes directly from the JWT payload and represents the user who made the request.
+</Info>
+
+---
+
+## Token Expiration and Refresh
+
+### Token Lifetime
+
+<ResponseField name="Expiration Time" type="duration">
+  Tokens expire **1 hour** after issuance (3600 seconds)
+</ResponseField>
+
+### Handling Expired Tokens
+
+When a token expires, the API returns a **401 Unauthorized** response:
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+<Accordion title="What happens when a token expires?">
+  When your token expires:
+  
+  1. The API rejects all requests with **401 Unauthorized**
+  2. The client must re-authenticate by calling `/auth/login` again
+  3. A new token is issued with a fresh 1-hour expiration
+  
+  <Warning>
+    The current implementation does not support refresh tokens. Users must log in again after expiration.
+  </Warning>
+</Accordion>
+
+### Token Renewal Strategy
+
+<Tabs>
+  <Tab title="Proactive Renewal">
+    Renew the token before it expires:
+    
+    ```javascript
+    // Store token with expiration time
+    const tokenData = {
+      token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+      expiresAt: Date.now() + 3600000 // 1 hour
+    };
+    
+    // Check before each request
+    if (Date.now() >= tokenData.expiresAt - 300000) { // 5 min buffer
+      // Re-authenticate
+      const newToken = await login(email, password);
+      tokenData.token = newToken;
+      tokenData.expiresAt = Date.now() + 3600000;
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Reactive Renewal">
+    Catch 401 errors and re-authenticate:
+    
+    ```javascript
+    async function makeRequest(url, options) {
+      try {
+        const response = await fetch(url, options);
+        
+        if (response.status === 401) {
+          // Token expired, re-authenticate
+          const newToken = await login(storedEmail, storedPassword);
+          
+          // Retry request with new token
+          options.headers['Authorization'] = `Bearer ${newToken}`;
+          return await fetch(url, options);
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('Request failed:', error);
+        throw error;
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Implementation Details
+
+### Validation Process (from auth.service.ts)
+
+The authentication service performs the following steps:
+
+<Steps>
+  <Step title="User Lookup">
+    Search for the user by email in the database
+  </Step>
+  <Step title="Existence Check">
+    Return `null` if the user doesn't exist
+  </Step>
+  <Step title="Password Verification">
+    Compare the provided password with the stored bcrypt hash
+  </Step>
+  <Step title="Token Generation">
+    If valid, generate a JWT with user data (email, ID, role)
+  </Step>
+</Steps>
+
+### JWT Strategy (from jwt.strategy.ts)
+
+The JWT strategy configuration:
+
+```typescript
+// Token extraction method
+jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken()
+
+// Token expiration enforcement
+ignoreExpiration: false
+
+// Secret key for signature verification
+secretOrKey: 'TU_SECRETO_SUPER_SECRETO'
+```
+
+<Warning>
+  In production, the secret key should be stored in environment variables, not hardcoded in the source code.
+</Warning>
+
+### User Object (from jwt.strategy.ts:21)
+
+After successful validation, the user object is attached to the request:
+
+```typescript
+return { 
+  userId: payload.sub, 
+  email: payload.email, 
+  role: payload.role 
+};
+```
+
+This object is available in all protected routes via `request.user`.
+
+---
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Store Securely" icon="lock">
+    Never store tokens in localStorage. Use httpOnly cookies or secure session storage.
+  </Card>
+  
+  <Card title="Use HTTPS" icon="shield">
+    Always transmit tokens over encrypted connections to prevent interception.
+  </Card>
+  
+  <Card title="Short Expiration" icon="clock">
+    Tokens expire in 1 hour to minimize the risk window if compromised.
+  </Card>
+  
+  <Card title="Don't Log Tokens" icon="eye-slash">
+    Never log full tokens in application logs or error messages.
+  </Card>
+</CardGroup>
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized on login">
+    **Possible causes:**
+    - Incorrect email or password
+    - User account doesn't exist
+    - Password hash is missing in database
+    
+    **Solution:** Verify credentials and ensure user exists with proper password hash.
+  </Accordion>
+  
+  <Accordion title="401 Unauthorized on protected endpoints">
+    **Possible causes:**
+    - Missing `Authorization` header
+    - Token is expired (older than 1 hour)
+    - Token format is incorrect (must be `Bearer <token>`)
+    - Token signature is invalid
+    
+    **Solution:** Ensure token is included correctly and hasn't expired. Re-authenticate if needed.
+  </Accordion>
+  
+  <Accordion title="Token doesn't include role information">
+    **Possible causes:**
+    - User record is missing the `role` field
+    - Token was generated before role was added to payload
+    
+    **Solution:** Ensure user has a valid role (admin, technician, or client) and re-authenticate.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Role-Based Access" icon="user-shield" href="/guides/role-based-access">
+    Learn how roles control access to different endpoints
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api/auth/login">
+    View detailed API specifications for auth endpoints
+  </Card>
+</CardGroup>

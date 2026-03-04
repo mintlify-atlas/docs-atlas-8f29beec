@@ -1,0 +1,268 @@
+---
+title: 'Database Setup'
+description: 'Install, configure, and connect PostgreSQL for the TechHelpDesk API'
+---
+
+## Overview
+
+The TechHelpDesk API uses PostgreSQL 15 as its database system with TypeORM as the ORM. This guide covers installation, configuration, and connection setup.
+
+## PostgreSQL Installation
+
+### Using Docker (Recommended)
+
+The project includes a Docker Compose configuration for easy PostgreSQL setup.
+
+<Steps>
+  <Step title="Start PostgreSQL Container">
+    Run the following command in the project root:
+    ```bash
+    docker-compose up -d
+    ```
+  </Step>
+  
+  <Step title="Verify Container Status">
+    Check that the database container is running:
+    ```bash
+    docker ps
+    ```
+  </Step>
+</Steps>
+
+#### Docker Compose Configuration
+
+The `docker-compose.yml` defines the PostgreSQL service:
+
+```yaml docker-compose.yml
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: helpdesk_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+
+### Manual Installation
+
+<Tabs>
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    sudo apt update
+    sudo apt install postgresql postgresql-contrib
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    brew install postgresql@15
+    brew services start postgresql@15
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    Download and install PostgreSQL 15 from the [official website](https://www.postgresql.org/download/windows/).
+  </Tab>
+</Tabs>
+
+## Database Creation
+
+### Using Docker Setup
+
+The database is automatically created with the Docker Compose configuration. The default credentials are:
+
+- **Database**: `helpdesk_db`
+- **User**: `admin`
+- **Password**: `root`
+- **Port**: `5432`
+
+### Manual Database Creation
+
+If you installed PostgreSQL manually:
+
+```bash
+# Connect to PostgreSQL
+psql -U postgres
+
+# Create database
+CREATE DATABASE helpdesk_db;
+
+# Create user
+CREATE USER admin WITH PASSWORD 'root';
+
+# Grant privileges
+GRANT ALL PRIVILEGES ON DATABASE helpdesk_db TO admin;
+```
+
+## Connection Configuration
+
+### DataSource Configuration
+
+The TypeORM DataSource is configured in `src/data-source.ts`:
+
+```typescript src/data-source.ts
+import { DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import { config } from 'dotenv';
+
+config();
+
+const configService = new ConfigService();
+
+export const AppDataSource = new DataSource({
+  type: 'postgres', 
+  host: 'localhost',
+  port: 5432,
+  username: 'admin',
+  password: 'root',
+  database: 'helpdesk_db',
+  entities: ['dist/**/*.entity{.ts,.js}'],
+  migrations: ['dist/migrations/*{.ts,.js}'],
+  synchronize: false, // Should be false in production
+  logging: true,
+});
+```
+
+<Warning>
+  The `synchronize` option is set to `false` to prevent automatic schema synchronization. Always use migrations in production environments.
+</Warning>
+
+### Environment Variables
+
+For production deployments, use environment variables to configure the database connection:
+
+```env .env
+# Database Configuration
+DB_TYPE=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=admin
+DB_PASSWORD=root
+DB_DATABASE=helpdesk_db
+
+# TypeORM Options
+DB_SYNCHRONIZE=false
+DB_LOGGING=true
+```
+
+<Note>
+  Create a `.env` file in the project root and add these variables. Never commit this file to version control.
+</Note>
+
+### Using Environment Variables in DataSource
+
+To use environment variables, modify the DataSource configuration:
+
+```typescript
+export const AppDataSource = new DataSource({
+  type: process.env.DB_TYPE as 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+  entities: ['dist/**/*.entity{.ts,.js}'],
+  migrations: ['dist/migrations/*{.ts,.js}'],
+  synchronize: process.env.DB_SYNCHRONIZE === 'true',
+  logging: process.env.DB_LOGGING === 'true',
+});
+```
+
+## Testing the Connection
+
+### Method 1: Using psql
+
+```bash
+psql -h localhost -p 5432 -U admin -d helpdesk_db
+```
+
+Enter the password when prompted (`root` by default).
+
+### Method 2: Using Docker Exec
+
+If using Docker:
+
+```bash
+docker-compose exec db psql -U admin -d helpdesk_db
+```
+
+### Method 3: Test Connection via Application
+
+Start the application and check the logs:
+
+```bash
+npm run start:dev
+```
+
+You should see TypeORM connection logs indicating successful database connection.
+
+## Connection Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection Refused Error">
+    **Problem**: `ECONNREFUSED` error when connecting to the database.
+    
+    **Solutions**:
+    - Verify PostgreSQL is running: `docker ps` or `systemctl status postgresql`
+    - Check if port 5432 is available: `lsof -i :5432`
+    - Ensure firewall allows connections to port 5432
+  </Accordion>
+  
+  <Accordion title="Authentication Failed">
+    **Problem**: `password authentication failed for user "admin"`
+    
+    **Solutions**:
+    - Verify credentials in `data-source.ts` match your PostgreSQL configuration
+    - Reset password: `ALTER USER admin WITH PASSWORD 'new_password';`
+    - Check `pg_hba.conf` for authentication settings
+  </Accordion>
+  
+  <Accordion title="Database Does Not Exist">
+    **Problem**: `database "helpdesk_db" does not exist`
+    
+    **Solutions**:
+    - Create the database manually (see Database Creation section)
+    - If using Docker, restart the container: `docker-compose down && docker-compose up -d`
+  </Accordion>
+</AccordionGroup>
+
+## Docker Management Commands
+
+```bash
+# Start the database
+docker-compose up -d
+
+# Stop the database
+docker-compose down
+
+# View logs
+docker-compose logs -f db
+
+# Remove database and volumes (WARNING: destroys data)
+docker-compose down -v
+
+# Restart database
+docker-compose restart db
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Migrations" icon="database" href="/database/migrations">
+    Learn how to create and run database migrations
+  </Card>
+  <Card title="Entity Definitions" icon="table" href="/database/entities">
+    Explore the database schema and entity relationships
+  </Card>
+</CardGroup>

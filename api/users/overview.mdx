@@ -1,0 +1,90 @@
+---
+title: "Users API Overview"
+description: "Comprehensive guide to the Users API, roles, and user management"
+---
+
+## Introduction
+
+The Users API provides endpoints for managing user accounts in the help desk system. Users can have different roles that determine their permissions and capabilities within the system.
+
+## User Roles
+
+The system supports three distinct user roles:
+
+<ResponseField name="admin" type="string">
+  Administrator role with full system access and management capabilities
+</ResponseField>
+
+<ResponseField name="technician" type="string">
+  Technician role for support staff who can be assigned to and resolve tickets
+</ResponseField>
+
+<ResponseField name="client" type="string">
+  Client role (default) for users who can create and track support tickets
+</ResponseField>
+
+## User Entity Schema
+
+The User entity represents the core user account with the following structure:
+
+<ResponseField name="id" type="string" required>
+  Unique UUID identifier for the user
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Full name of the user
+</ResponseField>
+
+<ResponseField name="email" type="string" required>
+  Email address (must be unique across all users)
+</ResponseField>
+
+<ResponseField name="password" type="string" required>
+  Hashed password using bcrypt (not returned in API responses)
+</ResponseField>
+
+<ResponseField name="role" type="enum" required>
+  User role: `admin`, `technician`, or `client` (defaults to `client`)
+</ResponseField>
+
+<ResponseField name="clientProfile" type="object">
+  One-to-one relationship with Client profile (if role is `client`)
+</ResponseField>
+
+<ResponseField name="technicianProfile" type="object">
+  One-to-one relationship with Technician profile (if role is `technician`)
+</ResponseField>
+
+<ResponseField name="createdAt" type="datetime">
+  Timestamp when the user was created
+</ResponseField>
+
+<ResponseField name="updatedAt" type="datetime">
+  Timestamp when the user was last updated
+</ResponseField>
+
+## Available Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Create User" icon="user-plus" href="/api/users/create">
+    Register a new user with admin, technician, or client role
+  </Card>
+  
+  <Card title="Get User" icon="user" href="/api/users/get">
+    Retrieve user details by ID
+  </Card>
+</CardGroup>
+
+## Security Features
+
+<Note>
+  All passwords are hashed using **bcrypt** with a generated salt before being stored in the database. The password field is never returned in API responses.
+</Note>
+
+## Role-Based Profiles
+
+Depending on the user's role, additional profile data may be created:
+
+- **Client users**: Can have an associated company name stored in their client profile
+- **Technician users**: Can have a specialty field and availability status
+- **Admin users**: Use only the base user entity without additional profiles

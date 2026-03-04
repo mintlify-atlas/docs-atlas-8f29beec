@@ -1,0 +1,253 @@
+---
+title: 'List Tickets'
+api: 'GET /tickets'
+description: 'Retrieve a list of tickets with optional filtering'
+---
+
+## Endpoint
+
+```
+GET /tickets
+```
+
+Retrieves a list of all tickets with support for filtering by status, priority, technician, and client.
+
+## Authentication
+
+<Note>
+This endpoint requires JWT Bearer authentication.
+</Note>
+
+## Query Parameters
+
+<ParamField query="status" type="enum">
+  Filter tickets by status
+  
+  **Possible values:**
+  - `open` - Newly created tickets
+  - `in_progress` - Tickets being worked on
+  - `resolved` - Resolved tickets
+  - `closed` - Closed tickets
+  
+  **Example:** `?status=open`
+</ParamField>
+
+<ParamField query="priority" type="enum">
+  Filter tickets by priority level
+  
+  **Possible values:**
+  - `low` - Low priority tickets
+  - `medium` - Medium priority tickets
+  - `high` - High priority tickets
+  
+  **Example:** `?priority=high`
+</ParamField>
+
+<ParamField query="technicianId" type="string">
+  Filter tickets by assigned technician ID
+  
+  **Format:** UUID v4
+  
+  **Example:** `?technicianId=550e8400-e29b-41d4-a716-446655440002`
+</ParamField>
+
+<ParamField query="clientId" type="string">
+  Filter tickets by client ID
+  
+  **Format:** UUID v4
+  
+  **Example:** `?clientId=550e8400-e29b-41d4-a716-446655440000`
+</ParamField>
+
+## Response
+
+Returns an array of Ticket objects matching the filter criteria.
+
+<ResponseField name="tickets" type="array">
+  Array of ticket objects
+  
+  <Expandable title="Ticket Object Properties">
+    <ResponseField name="id" type="string">
+      Unique identifier (UUID) of the ticket
+    </ResponseField>
+    
+    <ResponseField name="title" type="string">
+      Title of the ticket
+    </ResponseField>
+    
+    <ResponseField name="description" type="string">
+      Detailed description of the issue
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Current status: `open`, `in_progress`, `resolved`, or `closed`
+    </ResponseField>
+    
+    <ResponseField name="priority" type="string">
+      Priority level: `low`, `medium`, or `high`
+    </ResponseField>
+    
+    <ResponseField name="client" type="object">
+      Client who created the ticket
+    </ResponseField>
+    
+    <ResponseField name="technician" type="object">
+      Assigned technician (null if unassigned)
+    </ResponseField>
+    
+    <ResponseField name="category" type="object">
+      Category the ticket belongs to
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      Creation timestamp (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="updatedAt" type="string">
+      Last update timestamp (ISO 8601)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Requests
+
+<CodeGroup>
+
+```bash Get All Tickets
+curl -X GET https://api.example.com/tickets \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```bash Filter by Status
+curl -X GET "https://api.example.com/tickets?status=open" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```bash Filter by Priority
+curl -X GET "https://api.example.com/tickets?priority=high" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```bash Filter by Technician
+curl -X GET "https://api.example.com/tickets?technicianId=550e8400-e29b-41d4-a716-446655440002" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```bash Filter by Client
+curl -X GET "https://api.example.com/tickets?clientId=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```bash Multiple Filters
+curl -X GET "https://api.example.com/tickets?status=in_progress&priority=high" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+</CodeGroup>
+
+## Example Response
+
+```json 200 - Success
+[
+  {
+    "id": "789e1234-e89b-12d3-a456-426614174003",
+    "title": "Error al iniciar sesión",
+    "description": "No puedo iniciar sesión en la plataforma",
+    "status": "open",
+    "priority": "high",
+    "client": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "John Doe",
+      "email": "john.doe@example.com"
+    },
+    "category": {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "name": "Authentication"
+    },
+    "technician": null,
+    "createdAt": "2024-03-15T10:30:00.000Z",
+    "updatedAt": "2024-03-15T10:30:00.000Z"
+  },
+  {
+    "id": "890f2345-e89b-12d3-a456-426614174004",
+    "title": "Sistema lento en horas pico",
+    "description": "El sistema responde muy lento durante las horas de mayor tráfico",
+    "status": "in_progress",
+    "priority": "high",
+    "client": {
+      "id": "660e8400-e29b-41d4-a716-446655440005",
+      "name": "Jane Smith",
+      "email": "jane.smith@example.com"
+    },
+    "category": {
+      "id": "770e8400-e29b-41d4-a716-446655440006",
+      "name": "Performance"
+    },
+    "technician": {
+      "id": "550e8400-e29b-41d4-a716-446655440002",
+      "name": "Tech Support",
+      "email": "support@example.com"
+    },
+    "createdAt": "2024-03-15T09:15:00.000Z",
+    "updatedAt": "2024-03-15T10:00:00.000Z"
+  }
+]
+```
+
+## Filtering Examples
+
+### Get all open tickets
+
+```bash
+GET /tickets?status=open
+```
+
+### Get high priority tickets in progress
+
+```bash
+GET /tickets?status=in_progress&priority=high
+```
+
+### Get all tickets for a specific technician
+
+```bash
+GET /tickets?technicianId=550e8400-e29b-41d4-a716-446655440002
+```
+
+### Get all tickets from a specific client
+
+```bash
+GET /tickets?clientId=550e8400-e29b-41d4-a716-446655440000
+```
+
+### Get unassigned high priority tickets
+
+<Note>
+To get unassigned tickets, omit the `technicianId` parameter and filter by status `open`.
+</Note>
+
+```bash
+GET /tickets?status=open&priority=high
+```
+
+## Error Responses
+
+```json 401 - Unauthorized
+{
+  "statusCode": 401,
+  "message": "Unauthorized",
+  "error": "Unauthorized"
+}
+```
+
+## Use Cases
+
+- **Dashboard Views**: Retrieve all open tickets for a dashboard
+- **Technician Workload**: Get all tickets assigned to a specific technician
+- **Client Portal**: Show all tickets created by a specific client
+- **Priority Queue**: Filter high-priority tickets that need immediate attention
+- **Reporting**: Retrieve tickets by status for analytics and reporting
+
+## Implementation Reference
+
+Source: `tickets.controller.ts:77-117`

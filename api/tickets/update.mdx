@@ -1,0 +1,368 @@
+---
+title: 'Update Ticket'
+api: 'PATCH /tickets/:id'
+description: 'Update ticket status, priority, or assignment'
+---
+
+## Endpoint
+
+```
+PATCH /tickets/:id
+```
+
+Updates an existing ticket. Use this endpoint to change the ticket status, assign technicians, update priority, or modify other ticket properties.
+
+## Authentication
+
+<Note>
+This endpoint requires JWT Bearer authentication.
+</Note>
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  Unique identifier of the ticket to update
+  
+  **Format:** UUID v4
+  
+  **Example:** `123e4567-e89b-12d3-a456-426614174000`
+</ParamField>
+
+## Request Body
+
+<Note>
+All fields are optional. Only include the fields you want to update.
+</Note>
+
+<ParamField body="status" type="enum">
+  New status for the ticket
+  
+  **Possible values:**
+  - `open` - Newly created or reopened
+  - `in_progress` - Being actively worked on
+  - `resolved` - Issue has been resolved
+  - `closed` - Ticket is closed and archived
+  
+  **Example:** `"in_progress"`
+</ParamField>
+
+<ParamField body="priority" type="enum">
+  Updated priority level
+  
+  **Possible values:**
+  - `low` - Low priority
+  - `medium` - Medium priority
+  - `high` - High priority
+  
+  **Example:** `"high"`
+</ParamField>
+
+<ParamField body="technicianId" type="string">
+  ID of the technician to assign to the ticket
+  
+  **Format:** UUID v4
+  
+  **Example:** `"789e1234-e89b-12d3-a456-426614174002"`
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Update comment explaining the changes
+  
+  **Constraints:**
+  - Maximum length: 500 characters
+  
+  **Example:** `"Se asigna al técnico para revisión"`
+</ParamField>
+
+<ParamField body="title" type="string">
+  Updated title for the ticket
+  
+  **Constraints:**
+  - Minimum length: 5 characters
+  - Maximum length: 100 characters
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated description for the ticket
+  
+  **Constraints:**
+  - Minimum length: 10 characters
+</ParamField>
+
+<ParamField body="categoryId" type="string">
+  Updated category ID
+  
+  **Format:** UUID v4
+</ParamField>
+
+## Response
+
+Returns the updated Ticket object.
+
+<ResponseField name="id" type="string">
+  Unique identifier (UUID) of the ticket
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Updated title
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Updated description
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Updated status
+</ResponseField>
+
+<ResponseField name="priority" type="string">
+  Updated priority
+</ResponseField>
+
+<ResponseField name="client" type="object">
+  Client information
+</ResponseField>
+
+<ResponseField name="technician" type="object">
+  Assigned technician information
+</ResponseField>
+
+<ResponseField name="category" type="object">
+  Category information
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  Creation timestamp (ISO 8601)
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  Last update timestamp (ISO 8601)
+</ResponseField>
+
+## Example Requests
+
+<CodeGroup>
+
+```bash Assign Technician
+curl -X PATCH https://api.example.com/tickets/123e4567-e89b-12d3-a456-426614174000 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "technicianId": "550e8400-e29b-41d4-a716-446655440002",
+    "status": "in_progress",
+    "comment": "Se asigna al técnico para revisión"
+  }'
+```
+
+```bash Update Status
+curl -X PATCH https://api.example.com/tickets/123e4567-e89b-12d3-a456-426614174000 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "resolved",
+    "comment": "El problema ha sido resuelto satisfactoriamente"
+  }'
+```
+
+```bash Change Priority
+curl -X PATCH https://api.example.com/tickets/123e4567-e89b-12d3-a456-426614174000 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "priority": "high",
+    "comment": "Aumentar prioridad por solicitud del cliente"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://api.example.com/tickets/123e4567-e89b-12d3-a456-426614174000',
+  {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer YOUR_JWT_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      technicianId: '550e8400-e29b-41d4-a716-446655440002',
+      status: 'in_progress',
+      comment: 'Se asigna al técnico para revisión'
+    })
+  }
+);
+
+const updatedTicket = await response.json();
+```
+
+```python Python
+import requests
+
+ticket_id = '123e4567-e89b-12d3-a456-426614174000'
+url = f'https://api.example.com/tickets/{ticket_id}'
+headers = {
+    'Authorization': 'Bearer YOUR_JWT_TOKEN',
+    'Content-Type': 'application/json'
+}
+data = {
+    'status': 'resolved',
+    'comment': 'El problema ha sido resuelto satisfactoriamente'
+}
+
+response = requests.patch(url, headers=headers, json=data)
+updated_ticket = response.json()
+```
+
+</CodeGroup>
+
+## Example Response
+
+```json 200 - Success
+{
+  "id": "123e4567-e89b-12d3-a456-426614174000",
+  "title": "Error al iniciar sesión",
+  "description": "Al intentar iniciar sesión con credenciales válidas, el sistema muestra el error 'Usuario no encontrado'",
+  "status": "in_progress",
+  "priority": "high",
+  "client": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "John Doe",
+    "email": "john.doe@example.com"
+  },
+  "technician": {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "name": "Tech Support",
+    "email": "support@example.com"
+  },
+  "category": {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "name": "Authentication"
+  },
+  "createdAt": "2024-03-15T10:30:00.000Z",
+  "updatedAt": "2024-03-15T11:45:00.000Z"
+}
+```
+
+## Error Responses
+
+<ResponseExample>
+
+```json 400 - Invalid Status Transition
+{
+  "statusCode": 400,
+  "message": "No es posible cambiar el estado de open a closed directamente",
+  "error": "Bad Request"
+}
+```
+
+```json 404 - Ticket Not Found
+{
+  "statusCode": 404,
+  "message": "El ticket con ID 123e4567-e89b-12d3-a456-426614174000 no existe",
+  "error": "Not Found"
+}
+```
+
+```json 403 - Forbidden
+{
+  "statusCode": 403,
+  "message": "No tiene permiso para actualizar este ticket",
+  "error": "Forbidden"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "statusCode": 401,
+  "message": "Unauthorized",
+  "error": "Unauthorized"
+}
+```
+
+</ResponseExample>
+
+## Status Transitions
+
+<Warning>
+Not all status transitions are valid. Attempting invalid transitions will result in a 400 Bad Request error.
+</Warning>
+
+### Valid Transitions
+
+| From | To | Description |
+|------|-----|-------------|
+| `open` | `in_progress` | Technician starts working on ticket |
+| `open` | `resolved` | Quick resolution without in-progress state |
+| `in_progress` | `resolved` | Ticket is resolved |
+| `in_progress` | `open` | Ticket needs reassignment |
+| `resolved` | `closed` | Client confirms resolution |
+| `resolved` | `open` | Issue persists, ticket reopened |
+| `closed` | `open` | Reopen closed ticket |
+
+### Invalid Transitions
+
+<Warning>
+- **open → closed**: Cannot close without resolution
+- **in_progress → closed**: Must resolve before closing
+</Warning>
+
+## Common Update Scenarios
+
+### 1. Assign Technician to New Ticket
+
+```json
+{
+  "technicianId": "550e8400-e29b-41d4-a716-446655440002",
+  "status": "in_progress",
+  "comment": "Asignado para revisión inmediata"
+}
+```
+
+### 2. Resolve Ticket
+
+```json
+{
+  "status": "resolved",
+  "comment": "Problema resuelto. Se actualizó la configuración del servidor."
+}
+```
+
+### 3. Escalate Priority
+
+```json
+{
+  "priority": "high",
+  "comment": "Escalado por múltiples usuarios afectados"
+}
+```
+
+### 4. Reassign Technician
+
+```json
+{
+  "technicianId": "660e8400-e29b-41d4-a716-446655440003",
+  "comment": "Reasignado a especialista en base de datos"
+}
+```
+
+### 5. Close Resolved Ticket
+
+```json
+{
+  "status": "closed",
+  "comment": "Cliente confirmó que el problema está resuelto"
+}
+```
+
+## Validation Rules
+
+- **status**: Must be one of the valid enum values
+- **priority**: Must be one of the valid enum values
+- **technicianId**: Must be a valid UUID v4 format
+- **comment**: Maximum 500 characters
+- **title**: 5-100 characters if provided
+- **description**: Minimum 10 characters if provided
+- **categoryId**: Must be a valid UUID v4 format if provided
+
+## Implementation Reference
+
+Source: `tickets.controller.ts:153-232`
