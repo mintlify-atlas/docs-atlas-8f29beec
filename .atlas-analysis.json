@@ -1,0 +1,101 @@
+{
+  "projectType": "api-service",
+  "projectName": "TechHelpDesk API",
+  "projectDescription": "Technical support ticket management system with role-based access control, built with NestJS and TypeORM.",
+  "theme": "aspen",
+  "primaryColor": "#2563eb",
+  "lightColor": "#60a5fa",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/ticket-workflow",
+              "guides/role-based-access",
+              "guides/filtering-tickets"
+            ]
+          },
+          {
+            "group": "Database",
+            "pages": [
+              "database/setup",
+              "database/migrations",
+              "database/entities"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/login",
+              "api/auth/profile"
+            ]
+          },
+          {
+            "group": "Tickets",
+            "pages": [
+              "api/tickets/overview",
+              "api/tickets/create",
+              "api/tickets/list",
+              "api/tickets/get",
+              "api/tickets/update",
+              "api/tickets/delete"
+            ]
+          },
+          {
+            "group": "Users",
+            "pages": [
+              "api/users/overview",
+              "api/users/create",
+              "api/users/get"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "api/categories",
+              "api/clients",
+              "api/technicians"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "JWT-based authentication with role-based access control",
+    "Complete ticket lifecycle management (open, in_progress, resolved, closed)",
+    "Multi-user type support (admin, technician, client)",
+    "Advanced ticket filtering by status, priority, technician, and client",
+    "OpenAPI/Swagger documentation",
+    "TypeORM integration with PostgreSQL"
+  ],
+  "publicApiSurface": [
+    "POST /auth/login - Authenticate user and get JWT token",
+    "GET /auth/profile - Get current user profile",
+    "POST /tickets - Create new support ticket",
+    "GET /tickets - List all tickets with optional filters",
+    "GET /tickets/:id - Get ticket details by ID",
+    "PATCH /tickets/:id - Update ticket status, assign technician, or change priority",
+    "DELETE /tickets/:id - Delete ticket (admin only)",
+    "POST /users - Register new user (admin, technician, or client)",
+    "GET /users/:id - Get user details by ID"
+  ]
+}
